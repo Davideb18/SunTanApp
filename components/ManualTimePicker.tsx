@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { COLORS } from "@/constants/theme";
 
 const ITEM_HEIGHT = 40;
@@ -26,7 +26,11 @@ export function ManualTimePicker({ value, onChange }: Props) {
     
     return (
       <TouchableOpacity 
-        style={[styles.itemContainer, isSelected && styles.selectedItemContainer]}
+        className="h-10 w-full items-center justify-center"
+        style={{
+          opacity: isSelected ? 1 : 0.3,
+          transform: [{ scale: isSelected ? 1.15 : 0.8 }],
+        }}
         onPress={() => {
           onChange(item);
           flatListRef.current?.scrollToOffset({ 
@@ -36,10 +40,15 @@ export function ManualTimePicker({ value, onChange }: Props) {
         }}
         activeOpacity={0.7}
       >
-        <Text style={[styles.itemText, isSelected && styles.selectedItemText]}>
+        <Text className="text-[18px] font-black text-white" style={isSelected ? { color: COLORS.accentYellow, fontSize: 22 } : undefined}>
           {item}
         </Text>
-        <Text style={[styles.unitText, isSelected && styles.selectedUnitText]}>MINUTES</Text>
+        <Text
+          className="-mt-0.5 text-[7px] font-black tracking-[0.5px] text-white/40"
+          style={isSelected ? { color: COLORS.accentYellow, opacity: 0.8 } : undefined}
+        >
+          MINUTES
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -54,9 +63,9 @@ export function ManualTimePicker({ value, onChange }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>VERTICAL SELECTION</Text>
-      <View style={styles.listWrapper}>
+    <View className="mt-1.5 w-full items-center">
+      <Text className="mb-2.5 text-[9px] font-black uppercase tracking-[2px] text-white/25">VERTICAL SELECTION</Text>
+      <View className="w-full justify-center overflow-hidden" style={{ height: CONTAINER_HEIGHT }}>
         <FlatList
           ref={flatListRef}
           data={data}
@@ -75,73 +84,20 @@ export function ManualTimePicker({ value, onChange }: Props) {
           initialScrollIndex={options.indexOf(value)}
         />
         {/* Visual Focus Indicators */}
-        <View style={styles.focusFrame} pointerEvents="none" />
+        <View
+          pointerEvents="none"
+          className="absolute z-[-1]"
+          style={{
+            top: ITEM_HEIGHT,
+            left: "15%",
+            right: "15%",
+            height: ITEM_HEIGHT,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderColor: "rgba(255,222,0,0.15)",
+          }}
+        />
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 6,
-  },
-  label: {
-    fontSize: 9,
-    fontWeight: "900",
-    color: "rgba(255,255,255,0.25)",
-    letterSpacing: 2,
-    marginBottom: 10,
-    textTransform: "uppercase",
-  },
-  listWrapper: {
-    width: "100%",
-    height: CONTAINER_HEIGHT,
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  itemContainer: {
-    height: ITEM_HEIGHT,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    opacity: 0.3,
-    transform: [{ scale: 0.8 }],
-  },
-  selectedItemContainer: {
-    opacity: 1,
-    transform: [{ scale: 1.15 }],
-  },
-  itemText: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#FFFFFF",
-  },
-  selectedItemText: {
-    color: COLORS.accentYellow,
-    fontSize: 22,
-  },
-  unitText: {
-    fontSize: 7,
-    fontWeight: "900",
-    color: "rgba(255,255,255,0.4)",
-    marginTop: -2,
-    letterSpacing: 0.5,
-  },
-  selectedUnitText: {
-    color: COLORS.accentYellow,
-    opacity: 0.8,
-  },
-  focusFrame: {
-    position: "absolute",
-    top: ITEM_HEIGHT,
-    left: "15%",
-    right: "15%",
-    height: ITEM_HEIGHT,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "rgba(255,222,0,0.15)",
-    zIndex: -1,
-  }
-});

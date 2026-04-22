@@ -6,7 +6,7 @@
  * avoid gradient nesting / double-render issues).
  */
 import React from "react";
-import { StyleSheet, ViewStyle } from "react-native";
+import { ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { GRADIENT_COLORS, GRADIENT_START, GRADIENT_END } from "@/constants/theme";
 
@@ -21,15 +21,9 @@ export function GradientBackground({ children, style }: Props) {
       colors={[...GRADIENT_COLORS]}
       start={GRADIENT_START}
       end={GRADIENT_END}
-      style={[styles.container, style]}
+      style={[{ flex: 1 }, style]}
     >
       {children}
     </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});

@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, ViewStyle, StyleProp } from "react-native";
+import { View, ViewStyle, StyleProp, StyleSheet } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -19,48 +19,28 @@ export function GlassCard({
   tint = "dark",
 }: Props) {
   return (
-    <View style={[styles.wrapper, style]}>
+    <View className="overflow-hidden rounded-[24px] border border-white/15 bg-black/10" style={style}>
       {/* 1. Underlying Blur */}
-      <BlurView intensity={intensity} tint={tint} style={StyleSheet.absoluteFill} />
+      <BlurView intensity={intensity} tint={tint} style={StyleSheet.absoluteFillObject} />
       
       {/* 2. Soft Dark Overlay */}
-      <View style={styles.overlay} />
+      <View className="absolute inset-0 bg-black/25" />
       
       {/* 3. Glossy Shine Gradient */}
       <LinearGradient
         colors={["rgba(255, 255, 255, 0.08)", "transparent"]}
         start={{ x: 0.3, y: 0 }}
         end={{ x: 0.7, y: 1 }}
-        style={StyleSheet.absoluteFill}
+        style={StyleSheet.absoluteFillObject}
       />
       
       {/* 4. Highlight Border Top (Inner stroke) */}
-      <View style={styles.topStroke} />
+      <View
+        className="absolute inset-0 rounded-[24px]"
+        style={{ borderTopWidth: 1.5, borderTopColor: "rgba(255, 255, 255, 0.25)" }}
+      />
       
-      <View style={styles.content}>{children}</View>
+      <View className="relative">{children}</View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    borderRadius: 24,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
-    backgroundColor: "rgba(0, 0, 0, 0.1)",
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.25)",
-  },
-  topStroke: {
-    ...StyleSheet.absoluteFillObject,
-    borderTopWidth: 1.5,
-    borderTopColor: "rgba(255, 255, 255, 0.25)",
-    borderRadius: 24,
-  },
-  content: {
-    position: "relative",
-  },
-});

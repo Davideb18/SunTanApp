@@ -41,9 +41,9 @@ export function TimerRing({
   const center = size / 2;
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
+    <View className="items-center justify-center" style={{ width: size, height: size }}>
       {/* Background ring (track) */}
-      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFillObject}>
         <Circle
           cx={center}
           cy={center}
@@ -70,50 +70,20 @@ export function TimerRing({
       </Svg>
 
       {/* Centered labels */}
-      <View style={styles.labelContainer}>
+      <View className="items-center px-6">
         <Text
-          style={[
-            styles.timeLabel,
-            isActive && { color: COLORS.accentYellow, textShadowColor: COLORS.accentYellow },
-          ]}
+          className="text-center text-[38px] font-black tracking-[1px] text-white"
+          style={isActive ? { color: COLORS.accentYellow, textShadowColor: COLORS.accentYellow } : undefined}
           numberOfLines={1}
           adjustsFontSizeToFit
         >
           {timeLabel}
         </Text>
         {subtitle ? (
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text className="mt-1.5 text-[11px] font-extrabold uppercase tracking-[4px] text-white/55">{subtitle}</Text>
         ) : null}
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  labelContainer: {
-    alignItems: "center",
-    paddingHorizontal: 24,
-  },
-  timeLabel: {
-    fontSize: 38,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    fontVariant: ["tabular-nums"],
-    letterSpacing: 1,
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
-  },
-  subtitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: "rgba(255,255,255,0.55)",
-    marginTop: 6,
-  },
-});

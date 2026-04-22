@@ -9,7 +9,7 @@
  *                 reset flow, and premium feature cards.
  */
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
@@ -25,53 +25,50 @@ export default function ProfileScreen() {
   return (
     <GradientBackground>
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 96 },
-        ]}
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 96, paddingHorizontal: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.screenTitle}>Your Profile</Text>
+        <Text className="mb-5 text-[32px] font-black tracking-[-0.5px] text-white">Your Profile</Text>
 
         {/* Skin swatch + level */}
-        <GlassCard style={styles.card}>
-          <View style={styles.profileRow}>
+        <GlassCard style={{ marginBottom: 16 }}>
+          <View className="flex-row items-center gap-4 p-5">
             {/* Skin color circle */}
             <View
-              style={[
-                styles.skinCircle,
-                { backgroundColor: skinHex ?? "#C68642" },
-              ]}
+              className="h-16 w-16 rounded-full border-2 border-white/30"
+              style={{ backgroundColor: skinHex ?? "#C68642" }}
             />
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>
+            <View className="flex-1">
+              <Text className="mb-1 text-xl font-extrabold text-white">
                 {skinType?.label ?? "Unknown Skin Type"}
               </Text>
-              <Text style={styles.profileDetail}>
+              <Text className="mb-0.5 text-[13px] font-medium text-white/60">
                 Fitzpatrick Type {fitzpatrickLevel ?? "—"}
               </Text>
-              <Text style={styles.profileDetail}>SPF {currentSpf}</Text>
+              <Text className="mb-0.5 text-[13px] font-medium text-white/60">SPF {currentSpf}</Text>
             </View>
           </View>
         </GlassCard>
 
         {/* Settings rows */}
-        <GlassCard style={styles.card}>
-          <View style={styles.cardContent}>
-            <Text style={styles.sectionTitle}>Settings</Text>
-            <Text style={styles.placeholder}>
+        <GlassCard style={{ marginBottom: 16 }}>
+          <View className="p-5">
+            <Text className="mb-3 text-sm font-extrabold uppercase tracking-[2px] text-white/50">Settings</Text>
+            <Text className="mb-2 text-[13px] text-white/40">
               Full profile edit coming in Phase 8 →
             </Text>
-            <Text style={styles.detail}>Sun Reaction: {sunReaction ?? "—"}</Text>
-            <Text style={styles.detail}>Base Tan: {baseTan ?? "—"}</Text>
+            <Text className="mb-1 text-sm font-semibold text-white">Sun Reaction: {sunReaction ?? "—"}</Text>
+            <Text className="mb-1 text-sm font-semibold text-white">Base Tan: {baseTan ?? "—"}</Text>
 
             <TouchableOpacity 
               onPress={resetProfile} 
-              style={styles.resetButton}
+              className="mt-6 items-center rounded-xl border border-white/20 bg-white/10 py-3"
               activeOpacity={0.7}
             >
-              <Text style={styles.resetButtonText}>Reset Profile & Restart Onboarding</Text>
+              <Text style={{ color: COLORS.accentRed }} className="text-sm font-bold">
+                Reset Profile & Restart Onboarding
+              </Text>
             </TouchableOpacity>
           </View>
         </GlassCard>
@@ -79,76 +76,3 @@ export default function ProfileScreen() {
     </GradientBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: 24 },
-  screenTitle: {
-    fontSize: 32,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    letterSpacing: -0.5,
-    marginBottom: 20,
-  },
-  card: { marginBottom: 16 },
-  profileRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 20,
-    gap: 16,
-  },
-  skinCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  profileInfo: { flex: 1 },
-  profileName: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    marginBottom: 4,
-  },
-  profileDetail: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.6)",
-    marginBottom: 2,
-  },
-  cardContent: { padding: 20 },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    color: "rgba(255,255,255,0.5)",
-    marginBottom: 12,
-  },
-  placeholder: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.4)",
-    marginBottom: 8,
-  },
-  detail: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    marginBottom: 4,
-  },
-  resetButton: {
-    marginTop: 24,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-  },
-  resetButtonText: {
-    color: COLORS.accentRed,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-});

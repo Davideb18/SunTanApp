@@ -2,17 +2,14 @@ import React from "react";
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Platform,
   Image,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CloudSun, Clock, User2 } from "lucide-react-native";
-import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 
 import { COLORS } from "@/constants/theme";
 
@@ -21,15 +18,15 @@ const TAB_BAR_WIDTH = SCREEN_WIDTH - 32;
 const TAB_BAR_HEIGHT = 68;
 const HUMP_RADIUS = 38;
 
-export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom + 4 }]}>
+    <View className="absolute bottom-0 left-0 right-0 z-[1000] items-center" style={{ paddingBottom: insets.bottom + 4 }}>
       
       {/* THE FLOATING GLASS BAR (ONLY ELEMENT) */}
-      <View style={styles.floatingBarWrapper}>
-        <View style={styles.svgWrapper}>
+      <View className="items-center" style={{ width: TAB_BAR_WIDTH, height: TAB_BAR_HEIGHT + 35, marginBottom: 0 }}>
+        <View className="absolute inset-0 z-[-1]">
           <Svg width={TAB_BAR_WIDTH} height={TAB_BAR_HEIGHT + 35} viewBox={`0 0 ${TAB_BAR_WIDTH} ${TAB_BAR_HEIGHT + 30}`}>
             <Path
               d={`
@@ -55,8 +52,8 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         </View>
 
         {/* ITEMS LAYER */}
-        <View style={styles.content}>
-          {state.routes.map((route_item, index) => {
+        <View className="h-full w-full flex-row items-end justify-between px-2 pb-4">
+          {state.routes.map((_, index) => {
             const route = state.routes[index];
             const isFocused = state.index === index;
 
@@ -83,21 +80,32 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                 <TouchableOpacity
                   key={route.key}
                   onPress={onPress}
-                  style={styles.centerTab}
+                  className="h-full flex-[1.5] items-center justify-end"
                   activeOpacity={0.8}
                 >
-                   <View style={[styles.glowCircle, isFocused && styles.activeGlow]}>
-                      <View style={styles.sunCircleOuter}>
-                         <View style={styles.sunCircle}>
+                   <View className={`mb-[-12px] h-20 w-20 items-center justify-center rounded-full ${isFocused ? "bg-white/5" : ""}`}>
+                     <View className="mb-1 h-[60px] w-[60px] items-center justify-center rounded-full bg-white/5 p-0.5">
+                       <View
+                        className="h-[58px] w-[58px] items-center justify-center rounded-full bg-accentYellow"
+                        style={{
+                          shadowColor: COLORS.accentYellow,
+                          shadowOffset: { width: 0, height: 0 },
+                          shadowOpacity: 0.8,
+                          shadowRadius: 15,
+                          elevation: 8,
+                        }}
+                       >
                             <Image 
                               source={require("@/assets/sun.png")} 
-                              style={styles.sunImage} 
+                          style={{ width: 52, height: 52 }}
                               resizeMode="contain"
                             />
                          </View>
                       </View>
                    </View>
-                   <Text style={[styles.tabLabel, isFocused && styles.activeText]}>TRACKER</Text>
+                   <Text className={`mt-1.5 text-center text-[11px] font-black tracking-[1.5px] ${isFocused ? "text-white" : "text-white/50"}`}>
+                     TRACKER
+                   </Text>
                 </TouchableOpacity>
               );
             }
@@ -106,12 +114,12 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               <TouchableOpacity
                 key={route.key}
                 onPress={onPress}
-                style={styles.sideTab}
+                className="h-full flex-1 items-center justify-end"
                 activeOpacity={0.7}
               >
                 <IconComp size={24} color={isFocused ? activeColor : inactiveColor} strokeWidth={2.2} />
-                <View style={styles.labelGroup}>
-                  <Text style={[styles.tabLabel, isFocused && styles.activeText]}>
+                <View className="items-center">
+                  <Text className={`mt-1.5 text-center text-[11px] font-black tracking-[1.5px] ${isFocused ? "text-white" : "text-white/50"}`}>
                     {route.name === "weather" ? "HOME" : "PROFILE"}
                   </Text>
                 </View>
@@ -123,97 +131,3 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    zIndex: 1000,
-  },
-  floatingBarWrapper: {
-    width: TAB_BAR_WIDTH,
-    height: TAB_BAR_HEIGHT + 35,
-    marginBottom: 0, // Lowered against the edge
-    alignItems: "center",
-  },
-  svgWrapper: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: -1,
-  },
-  content: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    width: "100%",
-    paddingHorizontal: 8,
-    paddingBottom: 16,
-    height: "100%",
-  },
-  sideTab: {
-    flex: 1,
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  centerTab: {
-    flex: 1.5,
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  labelGroup: {
-    alignItems: "center",
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: "900",
-    color: "rgba(255,255,255,0.5)",
-    letterSpacing: 1.5,
-    marginTop: 6,
-    textAlign: "center",
-  },
-  activeText: {
-    color: "#FFFFFF",
-  },
-  sunCircleOuter: {
-     width: 60,
-     height: 60,
-     borderRadius: 30,
-     backgroundColor: "rgba(255,255,255,0.05)",
-     padding: 2,
-     alignItems: "center",
-     justifyContent: "center",
-     marginBottom: 4,
-  },
-  sunCircle: {
-     width: 58,
-     height: 58,
-     borderRadius: 29,
-     backgroundColor: COLORS.accentYellow,
-     alignItems: "center",
-     justifyContent: "center",
-     shadowColor: COLORS.accentYellow,
-     shadowOffset: { width: 0, height: 0 },
-     shadowOpacity: 0.8,
-     shadowRadius: 15,
-     elevation: 8,
-  },
-  sunImage: {
-     width: 52, // Enlarged sun image
-     height: 52,
-  },
-  glowCircle: {
-     width: 80,
-     height: 80,
-     borderRadius: 40,
-     alignItems: "center",
-     justifyContent: "center",
-     marginBottom: -12,
-  },
-  activeGlow: {
-     backgroundColor: "rgba(255, 255, 255, 0.05)",
-  }
-});

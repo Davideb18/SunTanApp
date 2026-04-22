@@ -1,6 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { COLORS } from "@/constants/theme";
+import { View, Text, TouchableOpacity } from "react-native";
 
 interface Props {
   mode: "coach" | "personal";
@@ -9,55 +8,26 @@ interface Props {
 
 export function ModeSelector({ mode, onChange }: Props) {
   return (
-    <View style={styles.container}>
+    <View className="w-full flex-row rounded-2xl bg-white/10 p-1">
       <TouchableOpacity
-        style={[styles.button, mode === "coach" && styles.activeButton]}
+        className={`flex-1 items-center rounded-xl py-2.5 ${mode === "coach" ? "bg-accentYellow" : ""}`}
         onPress={() => onChange("coach")}
         activeOpacity={0.8}
       >
-        <Text style={[styles.text, mode === "coach" && styles.activeText]}>COACH</Text>
+        <Text className={`text-xs font-extrabold tracking-[1px] ${mode === "coach" ? "text-black" : "text-white/40"}`}>
+          COACH
+        </Text>
       </TouchableOpacity>
       
       <TouchableOpacity
-        style={[styles.button, mode === "personal" && styles.activeButton]}
+        className={`flex-1 items-center rounded-xl py-2.5 ${mode === "personal" ? "bg-accentYellow" : ""}`}
         onPress={() => onChange("personal")}
         activeOpacity={0.8}
       >
-        <Text style={[styles.text, mode === "personal" && styles.activeText]}>PERSONAL</Text>
+        <Text className={`text-xs font-extrabold tracking-[1px] ${mode === "personal" ? "text-black" : "text-white/40"}`}>
+          PERSONAL
+        </Text>
       </TouchableOpacity>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 16,
-    padding: 4,
-    width: "100%",
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 12,
-  },
-  activeButton: {
-    backgroundColor: COLORS.accentYellow,
-    shadowColor: COLORS.accentYellow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  text: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 1,
-    color: "rgba(255, 255, 255, 0.4)",
-  },
-  activeText: {
-    color: "#000000",
-  },
-});

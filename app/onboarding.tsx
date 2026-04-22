@@ -2,25 +2,18 @@ import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronRight, ChevronLeft } from "lucide-react-native";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
-  FadeIn,
-  FadeOut,
   SlideInRight,
   SlideOutLeft,
   SlideInLeft,
   SlideOutRight,
   useAnimatedStyle,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -34,8 +27,6 @@ import {
 } from "@/constants/theme";
 import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
-
-const { width } = Dimensions.get("window");
 
 // ---------------------------------------------------------------------------
 // Components
@@ -55,11 +46,11 @@ const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSt
   });
 
   return (
-    <View style={styles.progressContainer}>
-      <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressFill, animatedStyle]} />
+    <View className="mx-4 flex-1">
+      <View className="h-2 overflow-hidden rounded bg-white/15">
+        <Animated.View className="h-full rounded bg-accentYellow" style={animatedStyle} />
       </View>
-      <Text style={styles.progressText}>
+      <Text className="mt-2 text-center text-xs font-bold uppercase tracking-[1px] text-white/50">
         Step {currentStep + 1} of {totalSteps}
       </Text>
     </View>
@@ -129,12 +120,12 @@ export default function OnboardingScreen() {
 
   return (
     <GradientBackground>
-      <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+      <View className="flex-1 px-6" style={{ paddingTop: insets.top + 20 }}>
         
         {/* Header & Progress */}
-        <View style={styles.header}>
+        <View className="mb-10 h-[60px] flex-row items-center justify-between">
           {step > 0 ? (
-            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <TouchableOpacity onPress={handleBack} className="-ml-2 p-2">
               <ChevronLeft color="#FFF" size={28} />
             </TouchableOpacity>
           ) : (
@@ -145,33 +136,44 @@ export default function OnboardingScreen() {
         </View>
 
         {/* Dynamic Content Area */}
-        <View style={styles.content}>
+        <View className="flex-1">
           <Animated.View 
             key={step} 
             entering={EnteringAnimation.duration(400)} 
             exiting={ExitingAnimation.duration(400)} 
-            style={styles.stepWrapper}
+            className="flex-1"
           >
             {step === 0 && (
               <>
-                <Text style={styles.title}>Your Skin Tone</Text>
-                <Text style={styles.subtitle}>Select the tone that best matches your skin</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Your Skin Tone</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">Select the tone that best matches your skin</Text>
                 <ScrollView 
                   showsVerticalScrollIndicator={false} 
-                  contentContainerStyle={styles.scrollWithFooter}
+                  contentContainerStyle={{ paddingBottom: 160 }}
                 >
-                  <View style={styles.swatchGrid}>
+                  <View className="flex-row flex-wrap justify-between">
                     {FITZPATRICK_TYPES.map((t) => (
                       <TouchableOpacity
                         key={t.level}
                         onPress={() => setFitzpatrick(t.level)}
-                        style={[
-                          styles.swatchItem,
-                          fitzpatrick === t.level && styles.swatchItemSelected,
-                        ]}
+                        className="mb-4 w-[45%] items-center rounded-[20px] border p-4"
+                        style={{
+                          backgroundColor: fitzpatrick === t.level ? "rgba(255,222,0,0.15)" : "rgba(255,255,255,0.1)",
+                          borderColor: fitzpatrick === t.level ? COLORS.accentYellow : "transparent",
+                        }}
                       >
-                        <View style={[styles.swatchCircle, { backgroundColor: t.hex }]} />
-                        <Text style={[styles.swatchLabel, fitzpatrick === t.level && styles.textAccent]}>
+                        <View
+                          className="mb-3 h-[60px] w-[60px] rounded-full"
+                          style={{
+                            backgroundColor: t.hex,
+                            shadowColor: "#000",
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 5,
+                            elevation: 5,
+                          }}
+                        />
+                        <Text className="text-sm font-semibold" style={{ color: fitzpatrick === t.level ? COLORS.accentYellow : "#FFF" }}>
                           {t.label}
                         </Text>
                       </TouchableOpacity>
@@ -183,24 +185,29 @@ export default function OnboardingScreen() {
 
             {step === 1 && (
               <>
-                <Text style={styles.title}>Sun Reaction</Text>
-                <Text style={styles.subtitle}>How does your skin react to direct sunlight?</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Sun Reaction</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">How does your skin react to direct sunlight?</Text>
                 <ScrollView 
                   showsVerticalScrollIndicator={false} 
-                  contentContainerStyle={styles.scrollWithFooter}
+                  contentContainerStyle={{ paddingBottom: 160 }}
                 >
                   {SUN_REACTION_OPTIONS.map((opt) => (
                     <TouchableOpacity key={opt.id} onPress={() => setReaction(opt.id)} activeOpacity={0.8}>
                       <GlassCard 
-                        style={[
-                          styles.optionCard,
-                          reaction === opt.id && styles.optionCardSelected
-                        ]}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          padding: 20,
+                          marginBottom: 12,
+                          borderWidth: 1,
+                          borderColor: reaction === opt.id ? COLORS.accentYellow : "transparent",
+                          backgroundColor: reaction === opt.id ? "rgba(255,222,0,0.1)" : undefined,
+                        }}
                       >
-                        <Text style={styles.optionEmoji}>{opt.emoji}</Text>
-                        <View style={styles.optionTextContainer}>
-                          <Text style={styles.optionLabel}>{opt.label}</Text>
-                          <Text style={styles.optionDescription}>{opt.description}</Text>
+                        <Text className="mr-5 text-[32px]">{opt.emoji}</Text>
+                        <View className="flex-1">
+                          <Text className="mb-1 text-lg font-bold text-white">{opt.label}</Text>
+                          <Text className="text-sm text-white/60">{opt.description}</Text>
                         </View>
                       </GlassCard>
                     </TouchableOpacity>
@@ -211,24 +218,29 @@ export default function OnboardingScreen() {
 
             {step === 2 && (
               <>
-                <Text style={styles.title}>Current Tan</Text>
-                <Text style={styles.subtitle}>What is your current base tan level?</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Current Tan</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">What is your current base tan level?</Text>
                 <ScrollView 
                   showsVerticalScrollIndicator={false} 
-                  contentContainerStyle={styles.scrollWithFooter}
+                  contentContainerStyle={{ paddingBottom: 160 }}
                 >
                   {BASE_TAN_OPTIONS.map((opt) => (
                     <TouchableOpacity key={opt.id} onPress={() => setBaseTan(opt.id)} activeOpacity={0.8}>
                       <GlassCard 
-                        style={[
-                          styles.optionCard,
-                          baseTan === opt.id && styles.optionCardSelected
-                        ]}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          padding: 20,
+                          marginBottom: 12,
+                          borderWidth: 1,
+                          borderColor: baseTan === opt.id ? COLORS.accentYellow : "transparent",
+                          backgroundColor: baseTan === opt.id ? "rgba(255,222,0,0.1)" : undefined,
+                        }}
                       >
-                        <Text style={styles.optionEmoji}>{opt.emoji}</Text>
-                        <View style={styles.optionTextContainer}>
-                          <Text style={styles.optionLabel}>{opt.label}</Text>
-                          <Text style={styles.optionDescription}>{opt.description}</Text>
+                        <Text className="mr-5 text-[32px]">{opt.emoji}</Text>
+                        <View className="flex-1">
+                          <Text className="mb-1 text-lg font-bold text-white">{opt.label}</Text>
+                          <Text className="text-sm text-white/60">{opt.description}</Text>
                         </View>
                       </GlassCard>
                     </TouchableOpacity>
@@ -239,35 +251,39 @@ export default function OnboardingScreen() {
 
             {step === 3 && (
               <>
-                <Text style={styles.title}>Preferred SPF</Text>
-                <Text style={styles.subtitle}>Which protection factor will you use today?</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Preferred SPF</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">Which protection factor will you use today?</Text>
                 <ScrollView 
                   showsVerticalScrollIndicator={false} 
-                  contentContainerStyle={styles.scrollWithFooter}
+                  contentContainerStyle={{ paddingBottom: 160 }}
                 >
-                  <View style={styles.spfGrid}>
+                  <View className="flex-row flex-wrap justify-between">
                     {SPF_OPTIONS.map((opt) => (
                       <TouchableOpacity 
                         key={opt.value + opt.label} 
                         onPress={() => setSpf(opt.value)} 
-                        style={styles.spfItemWrapper}
+                        className="mb-4 w-[47%]"
                       >
                         <GlassCard 
-                          style={[
-                            styles.spfCard,
-                            spf === opt.value && styles.spfCardSelected
-                          ]}
+                          style={{
+                            height: 140,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderWidth: 1,
+                            borderColor: spf === opt.value ? COLORS.accentYellow : "transparent",
+                            backgroundColor: spf === opt.value ? "rgba(255,222,0,0.15)" : undefined,
+                          }}
                         >
                           <Text 
-                            style={[
-                              styles.spfLabel, 
-                              spf === opt.value && styles.textAccent,
-                              opt.value === 0 && { fontSize: 28 } // Adjusted font for "None"
-                            ]}
+                            className="font-black text-white"
+                            style={{
+                              fontSize: opt.value === 0 ? 28 : 42,
+                              color: spf === opt.value ? COLORS.accentYellow : "#FFF",
+                            }}
                           >
                             {opt.label}
                           </Text>
-                          {opt.value !== 0 && <Text style={styles.spfSubLabel}>SPF</Text>}
+                          {opt.value !== 0 && <Text className="-mt-1 text-sm font-bold uppercase text-white/50">SPF</Text>}
                         </GlassCard>
                       </TouchableOpacity>
                     ))}
@@ -279,14 +295,23 @@ export default function OnboardingScreen() {
         </View>
 
         {/* Footer Action */}
-        <View style={styles.footerContainer} pointerEvents="box-none">
-          <View style={[styles.footerContent, { paddingBottom: insets.bottom + 20 }]}>
+        <View className="absolute bottom-0 left-0 right-0 h-[140px] justify-center bg-transparent" pointerEvents="box-none">
+          <View className="px-6 pt-6" style={{ paddingBottom: insets.bottom + 20 }}> 
             <TouchableOpacity
               onPress={handleNext}
               disabled={!canContinue}
-              style={[styles.nextButton, !canContinue && styles.disabledButton]}
+              className="flex-row items-center justify-center rounded-[20px] py-[18px]"
+              style={{
+                backgroundColor: canContinue ? COLORS.accentYellow : "rgba(255,255,255,0.3)",
+                opacity: canContinue ? 1 : 0.5,
+                shadowColor: COLORS.accentYellow,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.3,
+                shadowRadius: 15,
+                elevation: 10,
+              }}
             >
-              <Text style={styles.nextButtonText}>
+              <Text className="mr-2 text-lg font-extrabold" style={{ color: COLORS.tabBarBg }}>
                 {step === totalSteps - 1 ? "Start Tanning" : "Continue"}
               </Text>
               <ChevronRight color={COLORS.tabBarBg} size={24} />
@@ -297,205 +322,3 @@ export default function OnboardingScreen() {
     </GradientBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 40,
-    height: 60,
-  },
-  progressContainer: {
-    flex: 1,
-    marginHorizontal: 16,
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: COLORS.accentYellow,
-    borderRadius: 4,
-  },
-  progressText: {
-    color: "rgba(255, 255, 255, 0.5)",
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    marginTop: 8,
-    textAlign: "center",
-    letterSpacing: 1,
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  content: {
-    flex: 1,
-  },
-  stepWrapper: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "900",
-    color: "#FFF",
-    marginBottom: 8,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  swatchGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  swatchItem: {
-    width: "45%",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 20,
-    padding: 16,
-    alignItems: "center",
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  swatchItemSelected: {
-    borderColor: COLORS.accentYellow,
-    backgroundColor: "rgba(255,222,0,0.15)",
-  },
-  swatchCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  swatchLabel: {
-    color: "#FFF",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  optionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 20,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  optionCardSelected: {
-    borderColor: COLORS.accentYellow,
-    backgroundColor: "rgba(255,222,0,0.1)",
-  },
-  optionEmoji: {
-    fontSize: 32,
-    marginRight: 20,
-  },
-  optionTextContainer: {
-    flex: 1,
-  },
-  optionLabel: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#FFF",
-    marginBottom: 4,
-  },
-  optionDescription: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
-  },
-  spfGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  spfItemWrapper: {
-    width: "47%",
-    marginBottom: 16,
-  },
-  spfCard: {
-    height: 140,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  spfCardSelected: {
-    borderColor: COLORS.accentYellow,
-    backgroundColor: "rgba(255,222,0,0.15)",
-  },
-  spfLabel: {
-    fontSize: 42,
-    fontWeight: "900",
-    color: "#FFF",
-  },
-  spfSubLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.5)",
-    textTransform: "uppercase",
-    marginTop: -4,
-  },
-  textAccent: {
-    color: COLORS.accentYellow,
-  },
-  footerContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 140,
-    backgroundColor: "transparent",
-    justifyContent: "center",
-  },
-  footerContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-  },
-  scrollWithFooter: {
-    paddingBottom: 160,
-  },
-  nextButton: {
-    backgroundColor: COLORS.accentYellow,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 18,
-    borderRadius: 20,
-    shadowColor: COLORS.accentYellow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  disabledButton: {
-    opacity: 0.5,
-    backgroundColor: "rgba(255,255,255,0.3)",
-  },
-  nextButtonText: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: COLORS.tabBarBg,
-    marginRight: 8,
-  },
-});

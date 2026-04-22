@@ -5,7 +5,7 @@
  * The current hour bar is highlighted in accent orange-yellow.
  */
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text } from "react-native";
 import { COLORS, getUvBand } from "@/constants/theme";
 
 interface Props {
@@ -39,57 +39,30 @@ export function UvBar({ hour, uvIndex, isCurrentHour, maxUv }: Props) {
     : `${hour - 12}p`;
 
   return (
-    <View style={styles.column}>
+    <View className="mx-1 w-11 items-center">
       {/* UV value label above bar */}
-      <Text style={[styles.uvLabel, { color: isCurrentHour ? COLORS.accentYellow : "rgba(255,255,255,0.6)" }]}>
+      <Text className="mb-1 text-[11px] font-bold" style={{ color: isCurrentHour ? COLORS.accentYellow : "rgba(255,255,255,0.6)" }}>
         {uvIndex.toFixed(0)}
       </Text>
 
       {/* Bar */}
-      <View style={styles.barContainer}>
+      <View style={{ height: BAR_MAX_HEIGHT }} className="justify-end">
         <View
-          style={[
-            styles.bar,
-            { height: barHeight, backgroundColor: barColor, opacity },
-          ]}
+          className="w-5 rounded-md"
+          style={{ height: barHeight, backgroundColor: barColor, opacity }}
         />
       </View>
 
       {/* "NOW" label or hour */}
-      <Text style={[styles.hourLabel, isCurrentHour && styles.nowLabel]}>
+      <Text
+        className="mt-1.5 text-[11px]"
+        style={{
+          fontWeight: isCurrentHour ? "800" : "500",
+          color: isCurrentHour ? COLORS.accentYellow : "rgba(255,255,255,0.5)",
+        }}
+      >
         {isCurrentHour ? "NOW" : hourLabel}
       </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  column: {
-    alignItems: "center",
-    width: 44,
-    marginHorizontal: 4,
-  },
-  uvLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  barContainer: {
-    height: BAR_MAX_HEIGHT,
-    justifyContent: "flex-end",
-  },
-  bar: {
-    width: 20,
-    borderRadius: 6,
-  },
-  hourLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.5)",
-    marginTop: 6,
-  },
-  nowLabel: {
-    color: "#FFDE00",
-    fontWeight: "800",
-  },
-});
