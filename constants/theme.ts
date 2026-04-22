@@ -58,11 +58,11 @@ export interface UvBand {
 }
 
 export const UV_BANDS: UvBand[] = [
-  { label: "Low",       minIndex: 0,  color: "#4CAF50", emoji: "🟢" },
-  { label: "Moderate",  minIndex: 3,  color: "#FFDE00", emoji: "🟡" },
-  { label: "High",      minIndex: 6,  color: "#fb693d", emoji: "🟠" },
-  { label: "Very High", minIndex: 8,  color: "#ff0000", emoji: "🔴" },
-  { label: "Extreme",   minIndex: 11, color: "#9C27B0", emoji: "🟣" },
+  { label: "Low",       minIndex: 0,  color: "#FFF59D", emoji: "🟡" },
+  { label: "Moderate",  minIndex: 3,  color: "#FDD835", emoji: "☀️" },
+  { label: "High",      minIndex: 6,  color: "#FB8C00", emoji: "🟠" },
+  { label: "Very High", minIndex: 8,  color: "#E64A19", emoji: "🔴" },
+  { label: "Extreme",   minIndex: 11, color: "#B71C1C", emoji: "🟣" },
 ];
 
 /** Returns the UV band descriptor for a given UV index. */
@@ -137,10 +137,10 @@ export interface SpfOption {
 }
 
 export const SPF_OPTIONS: SpfOption[] = [
-  { value: 15,  label: "SPF 15"  },
-  { value: 30,  label: "SPF 30"  },
-  { value: 50,  label: "SPF 50"  },
-  { value: 50,  label: "SPF 50+" },
+  { value: 0,   label: "None"   },
+  { value: 15,  label: "15"  },
+  { value: 30,  label: "30"  },
+  { value: 50,  label: "50"  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -192,8 +192,12 @@ export function calcSafeSeconds(
   uvIndex: number
 ): number {
   if (uvIndex <= 0) return 14400; // UV=0 → no sun risk, return max
-  const minutes = spf * fitzpatrickLevel * (10 / uvIndex) * 60;
-  const seconds = minutes * 60;
+  // Safe minutes = SPF × SkinSensitivity × (ReferenceUV / CurrentUV)
+  // Using 10 as ReferenceUV for the ratio calculation.
+  const minutes = (spf || 1) * fitzpatrickLevel * (10 / uvIndex); 
+  const seconds = Math.floor(minutes * 60);
+  
+  // Clamp between 1 minute and 4 hours
   return Math.max(60, Math.min(seconds, 14400));
 }
 

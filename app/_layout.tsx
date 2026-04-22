@@ -8,8 +8,6 @@
  * ⚠️  Do NOT wrap the Stack in React Navigation's ThemeProvider —
  *     it breaks Expo Router's context propagation in RN v7.
  */
-import "../global.css";
-
 import React from "react";
 import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";

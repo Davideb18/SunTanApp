@@ -9,16 +9,16 @@
  *                 reset flow, and premium feature cards.
  */
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { useAppStore } from "@/store/useAppStore";
-import { FITZPATRICK_TYPES } from "@/constants/theme";
+import { FITZPATRICK_TYPES, COLORS } from "@/constants/theme";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { skinHex, fitzpatrickLevel, currentSpf, sunReaction, baseTan } = useAppStore();
+  const { skinHex, fitzpatrickLevel, currentSpf, sunReaction, baseTan, resetProfile } = useAppStore();
 
   const skinType = FITZPATRICK_TYPES.find((t) => t.level === fitzpatrickLevel);
 
@@ -65,6 +65,14 @@ export default function ProfileScreen() {
             </Text>
             <Text style={styles.detail}>Sun Reaction: {sunReaction ?? "—"}</Text>
             <Text style={styles.detail}>Base Tan: {baseTan ?? "—"}</Text>
+
+            <TouchableOpacity 
+              onPress={resetProfile} 
+              style={styles.resetButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.resetButtonText}>Reset Profile & Restart Onboarding</Text>
+            </TouchableOpacity>
           </View>
         </GlassCard>
       </ScrollView>
@@ -128,5 +136,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
     marginBottom: 4,
+  },
+  resetButton: {
+    marginTop: 24,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  resetButtonText: {
+    color: COLORS.accentRed,
+    fontWeight: "700",
+    fontSize: 14,
   },
 });

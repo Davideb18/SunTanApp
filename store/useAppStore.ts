@@ -13,34 +13,45 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // ---------------------------------------------------------------------------
 
 export type EngineMode = "coach" | "personal";
+export type PhaseType = "sunscreen" | "front" | "back" | "flip" | "hydration" | "cooldown" | "done";
+
+export interface SessionPhase {
+  label: string;
+  duration: number; // in seconds
+  type: PhaseType;
+}
 
 export interface AppState {
   // ── Onboarding ────────────────────────────────────────────────────────────
   hasCompletedOnboarding: boolean;
 
   // ── Skin profile ──────────────────────────────────────────────────────────
-  /** Hex color of the selected Fitzpatrick swatch */
   skinHex: string | null;
-  /** Fitzpatrick phototype level 1–6 */
   fitzpatrickLevel: number | null;
-  /** User's self-reported sun reaction id */
   sunReaction: string | null;
-  /** User's self-reported base tan id */
   baseTan: string | null;
-  /** Currently active SPF value */
   currentSpf: number;
 
   // ── Premium ───────────────────────────────────────────────────────────────
   hasPremium: boolean;
 
-  // ── Session preferences ───────────────────────────────────────────────────
-  /** Last-used engine mode: coach or personal */
+  // ── Mode & Weather ────────────────────────────────────────────────────────
   lastEngineMode: EngineMode;
-  /** Cached UV index from the weather screen (shared to avoid re-fetches) */
   cachedCurrentUv: number;
+  hourlyUvData: number[];
+  locationName: string | null;
+  lastWeatherFetch: number | null;
+
+  // ── Session state ─────────────────────────────────────────────────────────
+  sessionStatus: "idle" | "active" | "paused" | "done";
+  currentPhaseIndex: number;
+  sessionPhases: SessionPhase[];
+  sessionTimeRemaining: number;
+  sessionTimeTotal: number;
+  isSessionActive: boolean;
+  currentSessionMode: EngineMode | null;
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  /** Persist full skin profile collected during onboarding */
   setSkinProfile: (params: {
     skinHex: string;
     fitzpatrickLevel: number;
@@ -49,23 +60,98 @@ export interface AppState {
     currentSpf: number;
   }) => void;
 
-  /** Mark onboarding as completed — triggers redirect to (tabs) */
   completeOnboarding: () => void;
-
-  /** Update only the SPF without re-running onboarding */
   setCurrentSpf: (spf: number) => void;
-
-  /** Toggle or set premium access */
   setHasPremium: (value: boolean) => void;
-
-  /** Save last-used engine mode so it persists between sessions */
   setLastEngineMode: (mode: EngineMode) => void;
+  setWeatherData: (params: {
+    currentUv: number;
+    hourlyUvData: number[];
+    locationName?: string;
+  }) => void;
 
-  /** Update the cached UV index from the weather screen */
-  setCachedCurrentUv: (uv: number) => void;
+  // ── Session Actions ───────────────────────────────────────────────────────
+  startSession: (mode: EngineMode, totalSeconds: number) => void;
+  pauseSession: () => void;
+  resumeSession: () => void;
+  cancelSession: () => void;
+  nextPhase: () => void;
+  tick: () => void;
 
-  /** Full profile reset — clears all skin data and re-triggers onboarding */
   resetProfile: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Scientific Session Generator
+ * Generates a sequence of phases based on skin type and UV intensity.
+ */
+function generatePhases(
+  totalSeconds: number, 
+  fitzpatrickLevel: number, 
+  uvIndex: number
+): SessionPhase[] {
+  const phases: SessionPhase[] = [];
+  
+  // 1. Initial Protection
+  phases.push({ label: "APPLY SUNSCREEN", duration: 120, type: "sunscreen" });
+
+  // 2. Determine Rotation Timing (Scientific Matrix)
+  let rotationTime = 1800; // Default 30m
+  const subType = fitzpatrickLevel <= 2 ? "sensitive" : fitzpatrickLevel >= 5 ? "resistant" : "normal";
+
+  if (subType === "sensitive") {
+    rotationTime = uvIndex > 8 ? 600 : 900; // 10m or 15m
+  } else if (subType === "normal") {
+    rotationTime = uvIndex > 8 ? 1200 : 1800; // 20m or 30m
+  } else {
+    rotationTime = uvIndex > 8 ? 1800 : 2700; // 30m or 45m
+  }
+
+  // 3. Generate Cycles
+  let timeAllocated = 0;
+  let cycleCount = 0;
+  let side: "front" | "back" = "front";
+  let lastHydration = 0;
+
+  while (timeAllocated < totalSeconds) {
+    const remainingInSession = totalSeconds - timeAllocated;
+    const phaseDuration = Math.min(rotationTime, remainingInSession);
+
+    // Add Exposure Phase
+    phases.push({ 
+      label: `${side.toUpperCase()} SIDE ${Math.floor(cycleCount / 2) + 1}`, 
+      duration: phaseDuration, 
+      type: side 
+    });
+
+    timeAllocated += phaseDuration;
+    lastHydration += phaseDuration;
+
+    // Check for Hydration (every ~30 mins)
+    if (lastHydration >= 1800 && timeAllocated < totalSeconds) {
+      phases.push({ label: "DRINK WATER", duration: 60, type: "hydration" });
+      lastHydration = 0;
+    }
+
+    // Add Flip/Transition (if not the end)
+    if (timeAllocated < totalSeconds) {
+      phases.push({ label: "TIME TO FLIP", duration: 60, type: "flip" });
+      
+      // Add Cool-down for sensitive skin after each full rotation
+      if (subType === "sensitive" && side === "back") {
+        phases.push({ label: "SEEK SHADE", duration: 180, type: "cooldown" });
+      }
+      
+      side = side === "front" ? "back" : "front";
+      cycleCount++;
+    }
+  }
+
+  return phases;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +168,16 @@ const DEFAULT_STATE = {
   hasPremium: false,
   lastEngineMode: "coach" as EngineMode,
   cachedCurrentUv: 5,
+  hourlyUvData: [] as number[],
+  locationName: null as string | null,
+  lastWeatherFetch: null as number | null,
+  sessionStatus: "idle" as "idle" | "active" | "paused" | "done",
+  currentPhaseIndex: 0,
+  sessionPhases: [] as SessionPhase[],
+  sessionTimeRemaining: 0,
+  sessionTimeTotal: 0,
+  isSessionActive: false,
+  currentSessionMode: null as EngineMode | null,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -104,7 +200,89 @@ export const useAppStore = create<AppState>()(
 
       setLastEngineMode: (mode) => set({ lastEngineMode: mode }),
 
-      setCachedCurrentUv: (uv) => set({ cachedCurrentUv: uv }),
+      setWeatherData: ({ currentUv, hourlyUvData, locationName }) =>
+        set((state) => ({
+          cachedCurrentUv: currentUv,
+          hourlyUvData,
+          locationName: locationName ?? state.locationName,
+          lastWeatherFetch: Date.now(),
+        })),
+
+      // ── Session Actions Implementation ──────────────────────────────────────
+      startSession: (mode, totalSeconds) =>
+        set((state) => {
+          const phases = generatePhases(
+            totalSeconds, 
+            state.fitzpatrickLevel || 3, 
+            state.cachedCurrentUv
+          );
+          return {
+            sessionStatus: "active",
+            sessionPhases: phases,
+            currentPhaseIndex: 0,
+            sessionTimeTotal: totalSeconds,
+            sessionTimeRemaining: phases[0].duration,
+            isSessionActive: true,
+            currentSessionMode: mode,
+          };
+        }),
+
+      pauseSession: () => set({ isSessionActive: false, sessionStatus: "paused" }),
+
+      resumeSession: () => set({ isSessionActive: true, sessionStatus: "active" }),
+
+      cancelSession: () => set({ 
+        sessionStatus: "idle", 
+        isSessionActive: false, 
+        sessionTimeRemaining: 0,
+        currentPhaseIndex: 0,
+        sessionPhases: [],
+        currentSessionMode: null,
+      }),
+
+      nextPhase: () =>
+        set((state) => {
+          const nextIndex = state.currentPhaseIndex + 1;
+          if (nextIndex < state.sessionPhases.length) {
+            return {
+              currentPhaseIndex: nextIndex,
+              sessionTimeRemaining: state.sessionPhases[nextIndex].duration,
+            };
+          } else {
+            return {
+              sessionStatus: "done",
+              isSessionActive: false,
+              sessionTimeRemaining: 0,
+            };
+          }
+        }),
+
+      tick: () =>
+        set((state) => {
+          if (!state.isSessionActive || state.sessionStatus === "idle" || state.sessionStatus === "done") {
+            return {};
+          }
+
+          const newRemaining = state.sessionTimeRemaining - 1;
+
+          if (newRemaining <= 0) {
+            const nextIndex = state.currentPhaseIndex + 1;
+            if (nextIndex < state.sessionPhases.length) {
+              return {
+                currentPhaseIndex: nextIndex,
+                sessionTimeRemaining: state.sessionPhases[nextIndex].duration,
+              };
+            } else {
+              return {
+                sessionStatus: "done",
+                isSessionActive: false,
+                sessionTimeRemaining: 0,
+              };
+            }
+          }
+
+          return { sessionTimeRemaining: newRemaining };
+        }),
 
       resetProfile: () => set({ ...DEFAULT_STATE, hasCompletedOnboarding: false }),
     }),

@@ -16,7 +16,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.suntanapp.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "SunTanApp needs your location to fetch the real-time UV index for your area."
+        "NSLocationWhenInUseUsageDescription": "SunTanApp ha bisogno della tua posizione per fornirti l'indice UV in tempo reale nella tua zona.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "SunTanApp utilizza la tua posizione per monitorare l'indice UV e avvisarti quando è necessario riapplicare la crema.",
+        "NSLocationAlwaysUsageDescription": "SunTanApp utilizza la tua posizione per monitorare l'indice UV anche in background per la tua sicurezza solare."
       }
     },
     "android": {
@@ -37,7 +39,12 @@
     },
     "plugins": [
       "expo-router",
-      "expo-location"
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SunTanApp ha bisogno della tua posizione per fornirti l'indice UV in tempo reale."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
