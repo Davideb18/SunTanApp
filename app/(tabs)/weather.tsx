@@ -16,6 +16,7 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { useAppStore } from "@/store/useAppStore";
 import { getUvBand, COLORS } from "@/constants/theme";
+import { fetchWeatherData } from "@/utils/weather";
 
 // (Redundant local definitions removed)
 
@@ -109,41 +110,11 @@ export default function WeatherScreen() {
     setErrorMsg(null);
 
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setErrorMsg("Permission denied");
-        setLoading(false);
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = location.coords;
-
-      const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-      const city = geocode[0]?.city || geocode[0]?.region || "Your Location";
-
-      const response = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=uv_index&current_weather=true&timezone=auto&past_days=1&forecast_days=2`
-      );
-      const data = await response.json();
-
-      if (data.hourly && data.hourly.uv_index) {
-        const now = new Date();
-        const currentHour = now.getHours();
-        const absoluteIndex = 24 + currentHour;
-        const currentUv = data.hourly.uv_index[absoluteIndex] || 0;
-        
-        const centeredData = data.hourly.uv_index.slice(absoluteIndex - 12, absoluteIndex + 13);
-        
-        setWeatherData({
-          currentUv,
-          hourlyUvData: centeredData,
-          locationName: city,
-        });
-      }
-    } catch (error) {
+      const data = await fetchWeatherData();
+      setWeatherData(data);
+    } catch (error: any) {
       console.error("Weather fetch error:", error);
-      setErrorMsg("Failed to fetch data");
+      setErrorMsg(error.message || "Failed to fetch data");
     } finally {
       setLoading(false);
       setTimeout(() => centerNowInTimeline(true), 100);

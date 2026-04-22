@@ -9,7 +9,7 @@ import {
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CloudSun, Clock, User2 } from "lucide-react-native";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 
 import { COLORS } from "@/constants/theme";
 
@@ -28,6 +28,12 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
       <View className="items-center" style={{ width: TAB_BAR_WIDTH, height: TAB_BAR_HEIGHT + 35, marginBottom: 0 }}>
         <View className="absolute inset-0 z-[-1]">
           <Svg width={TAB_BAR_WIDTH} height={TAB_BAR_HEIGHT + 35} viewBox={`0 0 ${TAB_BAR_WIDTH} ${TAB_BAR_HEIGHT + 30}`}>
+            <Defs>
+              <LinearGradient id="tabBarGradient" x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor={COLORS.accentRed} />
+                <Stop offset="1" stopColor={COLORS.Yellow} />
+              </LinearGradient>
+            </Defs>
             <Path
               d={`
                 M 24,30
@@ -44,7 +50,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                 A 24,24 0 0 1 24,30
                 Z
               `}
-              fill="rgba(200, 100, 0, 1)" 
+              fill="url(#tabBarGradient)" 
               stroke="rgba(255, 255, 255, 0.50)"
               strokeWidth={3}
             />

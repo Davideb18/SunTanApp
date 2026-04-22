@@ -19,6 +19,7 @@ export const GRADIENT_END = { x: 1, y: 1 } as const;
 export const COLORS = {
   /** Primary accent — active tabs, highlights, timer glow */
   accentYellow: "#FFDE00",
+  Yellow:"#ffa600",
   /** Secondary accent — current UV bar, mid-gradient */
   accentOrange: "#fb693d",
   /** Danger / high-UV red */

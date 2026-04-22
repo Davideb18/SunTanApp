@@ -21,6 +21,18 @@ export interface SessionPhase {
   type: PhaseType;
 }
 
+export interface SessionHistoryItem {
+  id: string;
+  date: string; // ISO string
+  totalSeconds: number;
+  mode: EngineMode;
+  uvIndex: number;
+  vitD: number;
+  sweatMl: number;
+  imageUri?: string;
+  skinColorHex?: string;
+}
+
 export interface AppState {
   // ── Onboarding ────────────────────────────────────────────────────────────
   hasCompletedOnboarding: boolean;
@@ -38,6 +50,8 @@ export interface AppState {
   // ── Mode & Weather ────────────────────────────────────────────────────────
   lastEngineMode: EngineMode;
   cachedCurrentUv: number;
+  currentTemp: number;
+  feelsLikeTemp: number;
   hourlyUvData: number[];
   locationName: string | null;
   lastWeatherFetch: number | null;
@@ -50,6 +64,7 @@ export interface AppState {
   sessionTimeTotal: number;
   isSessionActive: boolean;
   currentSessionMode: EngineMode | null;
+  history: SessionHistoryItem[];
 
   // ── Actions ───────────────────────────────────────────────────────────────
   setSkinProfile: (params: {
@@ -66,6 +81,8 @@ export interface AppState {
   setLastEngineMode: (mode: EngineMode) => void;
   setWeatherData: (params: {
     currentUv: number;
+    currentTemp: number;
+    feelsLikeTemp: number;
     hourlyUvData: number[];
     locationName?: string;
   }) => void;
@@ -77,6 +94,7 @@ export interface AppState {
   cancelSession: () => void;
   nextPhase: () => void;
   tick: () => void;
+  addSessionToHistory: (session: Omit<SessionHistoryItem, "id" | "date">) => void;
 
   resetProfile: () => void;
 }
@@ -92,14 +110,32 @@ export interface AppState {
 function generatePhases(
   totalSeconds: number, 
   fitzpatrickLevel: number, 
-  uvIndex: number
+  uvIndex: number,
+  mode: EngineMode
 ): SessionPhase[] {
   const phases: SessionPhase[] = [];
   
-  // 1. Initial Protection
-  phases.push({ label: "APPLY SUNSCREEN", duration: 120, type: "sunscreen" });
+  // 1. Initial Protection (Shortened for short personal sessions)
+  const sunscreenTime = (mode === "personal" && totalSeconds < 600) ? 60 : 120;
+  phases.push({ label: "APPLY SUNSCREEN", duration: sunscreenTime, type: "sunscreen" });
 
-  // 2. Determine Rotation Timing (Scientific Matrix)
+  let exposureSeconds = totalSeconds - sunscreenTime;
+  if (exposureSeconds <= 0) exposureSeconds = totalSeconds; // Fallback
+
+  // 2. Personal Mode - Simple Equal Split
+  if (mode === "personal") {
+    if (exposureSeconds > 300) { // More than 5 mins exposure
+      const half = Math.floor(exposureSeconds / 2);
+      phases.push({ label: "FRONT SIDE", duration: half, type: "front" });
+      phases.push({ label: "FLIP POSITION", duration: 30, type: "flip" });
+      phases.push({ label: "BACK SIDE", duration: half - 30, type: "back" });
+    } else {
+      phases.push({ label: "QUICK EXPOSURE", duration: exposureSeconds, type: "front" });
+    }
+    return phases;
+  }
+
+  // 3. Coach Mode - Scientific Rotation Timing
   let rotationTime = 1800; // Default 30m
   const subType = fitzpatrickLevel <= 2 ? "sensitive" : fitzpatrickLevel >= 5 ? "resistant" : "normal";
 
@@ -111,14 +147,19 @@ function generatePhases(
     rotationTime = uvIndex > 8 ? 1800 : 2700; // 30m or 45m
   }
 
-  // 3. Generate Cycles
+  // Generate Cycles
   let timeAllocated = 0;
   let cycleCount = 0;
   let side: "front" | "back" = "front";
   let lastHydration = 0;
 
-  while (timeAllocated < totalSeconds) {
-    const remainingInSession = totalSeconds - timeAllocated;
+  // If total time is less than rotation time but enough to split, force a split
+  if (exposureSeconds < rotationTime && exposureSeconds > 600) {
+    rotationTime = Math.floor(exposureSeconds / 2);
+  }
+
+  while (timeAllocated < exposureSeconds) {
+    const remainingInSession = exposureSeconds - timeAllocated;
     const phaseDuration = Math.min(rotationTime, remainingInSession);
 
     // Add Exposure Phase
@@ -131,23 +172,21 @@ function generatePhases(
     timeAllocated += phaseDuration;
     lastHydration += phaseDuration;
 
-    // Check for Hydration (every ~30 mins)
-    if (lastHydration >= 1800 && timeAllocated < totalSeconds) {
-      phases.push({ label: "DRINK WATER", duration: 60, type: "hydration" });
-      lastHydration = 0;
-    }
-
-    // Add Flip/Transition (if not the end)
-    if (timeAllocated < totalSeconds) {
-      phases.push({ label: "TIME TO FLIP", duration: 60, type: "flip" });
-      
-      // Add Cool-down for sensitive skin after each full rotation
-      if (subType === "sensitive" && side === "back") {
-        phases.push({ label: "SEEK SHADE", duration: 180, type: "cooldown" });
+    // Flip side for next round
+    if (timeAllocated < exposureSeconds) {
+      if (side === "front") {
+        phases.push({ label: "FLIP POSITION", duration: 30, type: "flip" });
+        timeAllocated += 30;
       }
-      
       side = side === "front" ? "back" : "front";
       cycleCount++;
+    }
+
+    // Check for Hydration (every ~30 mins)
+    if (lastHydration >= 1800 && timeAllocated < exposureSeconds) {
+      phases.push({ label: "DRINK WATER", duration: 60, type: "hydration" });
+      lastHydration = 0;
+      timeAllocated += 60;
     }
   }
 
@@ -167,7 +206,9 @@ const DEFAULT_STATE = {
   currentSpf: 30,
   hasPremium: false,
   lastEngineMode: "coach" as EngineMode,
-  cachedCurrentUv: 5,
+  cachedCurrentUv: 0,
+  currentTemp: 0,
+  feelsLikeTemp: 0,
   hourlyUvData: [] as number[],
   locationName: null as string | null,
   lastWeatherFetch: null as number | null,
@@ -178,6 +219,7 @@ const DEFAULT_STATE = {
   sessionTimeTotal: 0,
   isSessionActive: false,
   currentSessionMode: null as EngineMode | null,
+  history: [] as SessionHistoryItem[],
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -200,9 +242,11 @@ export const useAppStore = create<AppState>()(
 
       setLastEngineMode: (mode) => set({ lastEngineMode: mode }),
 
-      setWeatherData: ({ currentUv, hourlyUvData, locationName }) =>
+      setWeatherData: ({ currentUv, currentTemp, feelsLikeTemp, hourlyUvData, locationName }) =>
         set((state) => ({
           cachedCurrentUv: currentUv,
+          currentTemp,
+          feelsLikeTemp,
           hourlyUvData,
           locationName: locationName ?? state.locationName,
           lastWeatherFetch: Date.now(),
@@ -211,19 +255,17 @@ export const useAppStore = create<AppState>()(
       // ── Session Actions Implementation ──────────────────────────────────────
       startSession: (mode, totalSeconds) =>
         set((state) => {
-          const phases = generatePhases(
-            totalSeconds, 
-            state.fitzpatrickLevel || 3, 
-            state.cachedCurrentUv
-          );
+          const phases = generatePhases(totalSeconds, state.fitzpatrickLevel || 1, state.cachedCurrentUv, mode);
+          const totalDuration = phases.reduce((acc, p) => acc + p.duration, 0);
+          
           return {
-            sessionStatus: "active",
+            currentSessionMode: mode,
             sessionPhases: phases,
             currentPhaseIndex: 0,
-            sessionTimeTotal: totalSeconds,
             sessionTimeRemaining: phases[0].duration,
+            sessionTimeTotal: totalDuration,
+            sessionStatus: "active",
             isSessionActive: true,
-            currentSessionMode: mode,
           };
         }),
 
@@ -283,6 +325,18 @@ export const useAppStore = create<AppState>()(
 
           return { sessionTimeRemaining: newRemaining };
         }),
+
+      addSessionToHistory: (session) =>
+        set((state) => ({
+          history: [
+            {
+              ...session,
+              id: Math.random().toString(36).substring(7),
+              date: new Date().toISOString(),
+            },
+            ...state.history,
+          ],
+        })),
 
       resetProfile: () => set({ ...DEFAULT_STATE, hasCompletedOnboarding: false }),
     }),

@@ -19,6 +19,8 @@ interface Props {
   timeLabel: string;
   /** Optional subtitle below the time (e.g. "FRONT SIDE") */
   subtitle?: string;
+  /** Optional total time label (e.g. "Elapsed: 05:00") */
+  totalTimeLabel?: string;
   /** Outer diameter in logical pixels. Defaults to 260. */
   size?: number;
   /** Whether the timer is currently running (adds glow effect). */
@@ -29,6 +31,7 @@ export function TimerRing({
   progress,
   timeLabel,
   subtitle,
+  totalTimeLabel,
   size = 260,
   isActive = false,
 }: Props) {
@@ -70,9 +73,14 @@ export function TimerRing({
       </Svg>
 
       {/* Centered labels */}
-      <View className="items-center px-6">
+      <View className="items-center px-4">
+        {totalTimeLabel ? (
+          <Text className="mb-0.5 text-[10px] font-bold uppercase tracking-[1.5px] text-white/40">
+            Total {totalTimeLabel}
+          </Text>
+        ) : null}
         <Text
-          className="text-center text-[38px] font-black tracking-[1px] text-white"
+          className="text-center text-[34px] font-black tracking-[1px] text-white"
           style={isActive ? { color: COLORS.accentYellow, textShadowColor: COLORS.accentYellow } : undefined}
           numberOfLines={1}
           adjustsFontSizeToFit
@@ -80,7 +88,7 @@ export function TimerRing({
           {timeLabel}
         </Text>
         {subtitle ? (
-          <Text className="mt-1.5 text-[11px] font-extrabold uppercase tracking-[4px] text-white/55">{subtitle}</Text>
+          <Text className="mt-1 text-[10px] font-extrabold uppercase tracking-[3px] text-white/55">{subtitle}</Text>
         ) : null}
       </View>
     </View>
