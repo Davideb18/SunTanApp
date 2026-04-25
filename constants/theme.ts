@@ -192,14 +192,13 @@ export function calcSafeSeconds(
   fitzpatrickLevel: number,
   uvIndex: number
 ): number {
-  if (uvIndex <= 0) return 14400; // UV=0 → no sun risk, return max
+  if (uvIndex <= 0) return 3600; // UV=0 → no sun risk, return max (1h)
   // Safe minutes = SPF × SkinSensitivity × (ReferenceUV / CurrentUV)
-  // Using 10 as ReferenceUV for the ratio calculation.
   const minutes = (spf || 1) * fitzpatrickLevel * (10 / uvIndex); 
   const seconds = Math.floor(minutes * 60);
   
-  // Clamp between 1 minute and 4 hours
-  return Math.max(60, Math.min(seconds, 14400));
+  // Clamp between 1 minute and 1 hour
+  return Math.max(60, Math.min(seconds, 3600));
 }
 
 /** Formats a total number of seconds as "Xh Ym Zs" or "Ym Zs" string. */

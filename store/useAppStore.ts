@@ -29,7 +29,7 @@ export interface SessionHistoryItem {
   uvIndex: number;
   vitD: number;
   sweatMl: number;
-  imageUri?: string;
+  imageUri?: string | null;
   skinColorHex?: string;
 }
 
@@ -65,6 +65,11 @@ export interface AppState {
   isSessionActive: boolean;
   currentSessionMode: EngineMode | null;
   history: SessionHistoryItem[];
+  dailyGoalMinutes: number;
+  language: string;
+  units: "metric" | "imperial";
+  notificationsEnabled: boolean;
+  vitDGoalIU: number;
 
   // ── Actions ───────────────────────────────────────────────────────────────
   setSkinProfile: (params: {
@@ -95,8 +100,16 @@ export interface AppState {
   nextPhase: () => void;
   tick: () => void;
   addSessionToHistory: (session: Omit<SessionHistoryItem, "id" | "date">) => void;
-
+  updateHistoryItemData: (id: string, updates: Partial<SessionHistoryItem>) => void;
+  setCachedCurrentUv: (uv: number) => void;
+  setFitzpatrickLevel: (level: number) => void;
+  setSkinHex: (hex: string) => void;
   resetProfile: () => void;
+  setDailyGoalMinutes: (minutes: number) => void;
+  setLanguage: (lang: string) => void;
+  setUnits: (units: "metric" | "imperial") => void;
+  setNotificationsEnabled: (enabled: boolean) => void;
+  setVitDGoalIU: (goal: number) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +233,11 @@ const DEFAULT_STATE = {
   isSessionActive: false,
   currentSessionMode: null as EngineMode | null,
   history: [] as SessionHistoryItem[],
+  dailyGoalMinutes: 40,
+  language: "en",
+  units: "metric" as "metric" | "imperial",
+  notificationsEnabled: true,
+  vitDGoalIU: 15000,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -338,10 +356,33 @@ export const useAppStore = create<AppState>()(
           ],
         })),
 
+      updateHistoryItemData: (id, updates) =>
+        set((state) => ({
+          history: state.history.map((item) =>
+            item.id === id ? { ...item, ...updates } : item
+          ),
+        })),
+
+      setCachedCurrentUv: (uv) => set({ cachedCurrentUv: uv }),
+
+      setFitzpatrickLevel: (level) => set({ fitzpatrickLevel: level }),
+
+      setSkinHex: (hex) => set({ skinHex: hex }),
+
+      setDailyGoalMinutes: (minutes) => set({ dailyGoalMinutes: minutes }),
+      
+      setLanguage: (lang) => set({ language: lang }),
+      
+      setUnits: (units) => set({ units }),
+      
+      setNotificationsEnabled: (enabled) => set({ notificationsEnabled: enabled }),
+      
+      setVitDGoalIU: (goal) => set({ vitDGoalIU: goal }),
+
       resetProfile: () => set({ ...DEFAULT_STATE, hasCompletedOnboarding: false }),
     }),
     {
-      name: "suntanapp-storage",
+      name: "glowy-storage",
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

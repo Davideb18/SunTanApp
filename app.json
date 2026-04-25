@@ -1,33 +1,33 @@
 {
   "expo": {
-    "name": "SunTanApp",
-    "slug": "suntanapp",
+    "name": "Glowy",
+    "slug": "glowy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "suntanapp",
+    "scheme": "glowy",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ff0000"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.suntanapp.app",
+      "bundleIdentifier": "com.glowy.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "SunTanApp ha bisogno della tua posizione per fornirti l'indice UV in tempo reale nella tua zona.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "SunTanApp utilizza la tua posizione per monitorare l'indice UV e avvisarti quando è necessario riapplicare la crema.",
-        "NSLocationAlwaysUsageDescription": "SunTanApp utilizza la tua posizione per monitorare l'indice UV anche in background per la tua sicurezza solare."
+        "NSLocationWhenInUseUsageDescription": "Glowy ha bisogno della tua posizione per fornirti l'indice UV in tempo reale nella tua zona.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Glowy utilizza la tua posizione per monitorare l'indice UV e avvisarti quando è necessario riapplicare la crema.",
+        "NSLocationAlwaysUsageDescription": "Glowy utilizza la tua posizione per monitorare l'indice UV anche in background per la tua sicurezza solare."
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ff0000"
+        "backgroundColor": "#000000"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.suntanapp.app",
+      "package": "com.glowy.app",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION"
@@ -42,7 +42,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "SunTanApp ha bisogno della tua posizione per fornirti l'indice UV in tempo reale."
+          "locationWhenInUsePermission": "Glowy ha bisogno della tua posizione per fornirti l'indice UV in tempo reale."
         }
       ]
     ],

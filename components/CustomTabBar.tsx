@@ -27,7 +27,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
       {/* THE FLOATING GLASS BAR (ONLY ELEMENT) */}
       <View className="items-center" style={{ width: TAB_BAR_WIDTH, height: TAB_BAR_HEIGHT + 35, marginBottom: 0 }}>
         <View className="absolute inset-0 z-[-1]">
-          <Svg width={TAB_BAR_WIDTH} height={TAB_BAR_HEIGHT + 35} viewBox={`0 0 ${TAB_BAR_WIDTH} ${TAB_BAR_HEIGHT + 30}`}>
+          <Svg width={TAB_BAR_WIDTH + 4} height={TAB_BAR_HEIGHT + 35} viewBox={`0 0 ${TAB_BAR_WIDTH + 4} ${TAB_BAR_HEIGHT + 35}`} style={{ marginLeft: -2 }}>
             <Defs>
               <LinearGradient id="tabBarGradient" x1="0" y1="0" x2="1" y2="0">
                 <Stop offset="0" stopColor={COLORS.accentRed} />
@@ -36,23 +36,23 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             </Defs>
             <Path
               d={`
-                M 24,30
-                H ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS - 15}
-                C ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS},30 ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS},0 ${TAB_BAR_WIDTH / 2},0
-                C ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS},0 ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS},30 ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 15},30
-                H ${TAB_BAR_WIDTH - 24}
-                A 24,24 0 0 1 ${TAB_BAR_WIDTH},54
+                M 26,30
+                H ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS - 13}
+                C ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS + 2},30 ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS + 2},0 ${TAB_BAR_WIDTH / 2 + 2},0
+                C ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 2},0 ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 2},30 ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 17},30
+                H ${TAB_BAR_WIDTH - 22}
+                A 24,24 0 0 1 ${TAB_BAR_WIDTH + 2},54
                 V ${TAB_BAR_HEIGHT + 6}
-                A 24,24 0 0 1 ${TAB_BAR_WIDTH - 24},${TAB_BAR_HEIGHT + 30}
-                H 24
-                A 24,24 0 0 1 0,${TAB_BAR_HEIGHT + 6}
+                A 24,24 0 0 1 ${TAB_BAR_WIDTH - 22},${TAB_BAR_HEIGHT + 30}
+                H 26
+                A 24,24 0 0 1 2,${TAB_BAR_HEIGHT + 6}
                 V 54
-                A 24,24 0 0 1 24,30
+                A 24,24 0 0 1 26,30
                 Z
               `}
               fill="url(#tabBarGradient)" 
-              stroke="rgba(255, 255, 255, 0.50)"
-              strokeWidth={3}
+              stroke="rgba(255, 255, 255, 0.85)"
+              strokeWidth={2.5}
             />
           </Svg>
         </View>

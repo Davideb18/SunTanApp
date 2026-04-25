@@ -4,9 +4,10 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { ChevronRight, ChevronLeft } from "lucide-react-native";
+import { ChevronRight, ChevronLeft, ShieldCheck, Check } from "lucide-react-native";
 import Animated, {
   SlideInRight,
   SlideOutLeft,
@@ -16,6 +17,10 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { COLORS } from "@/constants/theme";
+import { GlassCard } from "@/components/GlassCard";
+import { LegalModal } from "@/components/LegalModal";
 
 import { useAppStore } from "@/store/useAppStore";
 import {
@@ -27,6 +32,9 @@ import {
 } from "@/constants/theme";
 import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
+import { LegalModal } from "@/components/LegalModal";
+
+const { width } = Dimensions.get("window");
 
 // ---------------------------------------------------------------------------
 // Components
@@ -69,7 +77,10 @@ export default function OnboardingScreen() {
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
-  const totalSteps = 4;
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const [legalVisible, setLegalVisible] = useState(false);
+  const [legalType, setLegalType] = useState<"privacy" | "terms">("privacy");
+  const totalSteps = 5;
 
   // Selection state
   const [fitzpatrick, setFitzpatrick] = useState<number | null>(null);
@@ -80,11 +91,10 @@ export default function OnboardingScreen() {
   const handleNext = useCallback(() => {
     if (step < totalSteps - 1) {
       setDirection("forward");
-      // Use a small delay to ensure the exit animation direction is updated before the step change
       setTimeout(() => setStep((s) => s + 1), 0);
     } else {
       // Finalize
-      if (fitzpatrick && reaction && baseTan) {
+      if (fitzpatrick && reaction && baseTan && acceptedLegal) {
         const selectedType = FITZPATRICK_TYPES.find((t) => t.level === fitzpatrick);
         setSkinProfile({
           skinHex: selectedType?.hex || "#FFFFFF",
@@ -97,22 +107,22 @@ export default function OnboardingScreen() {
         router.replace("/(tabs)");
       }
     }
-  }, [step, fitzpatrick, reaction, baseTan, spf, setSkinProfile, completeOnboarding, router]);
+  }, [step, fitzpatrick, reaction, baseTan, spf, acceptedLegal, setSkinProfile, completeOnboarding, router]);
 
   const handleBack = useCallback(() => {
     if (step > 0) {
       setDirection("backward");
-      // Use a small delay to ensure the exit animation direction is updated before the step change
       setTimeout(() => setStep((s) => s - 1), 0);
     }
   }, [step]);
 
   // Validation
   const canContinue = 
-    (step === 0 && fitzpatrick !== null) ||
-    (step === 1 && reaction !== null) ||
-    (step === 2 && baseTan !== null) ||
-    (step === 3);
+    (step === 0 && acceptedLegal) ||
+    (step === 1 && fitzpatrick !== null) ||
+    (step === 2 && reaction !== null) ||
+    (step === 3 && baseTan !== null) ||
+    (step === 4);
 
   // Animation mapping - Standardized for all steps
   const EnteringAnimation = direction === "forward" ? SlideInRight : SlideInLeft;
@@ -145,6 +155,64 @@ export default function OnboardingScreen() {
           >
             {step === 0 && (
               <>
+                <View className="mb-10">
+                  <Text className="text-[42px] font-black tracking-[-2px] text-white">GLOWY</Text>
+                  <LinearGradient
+                    colors={[COLORS.accentYellow, "#ef4444"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{ height: 6, width: 40, borderRadius: 3, marginTop: -2 }}
+                  />
+                </View>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Welcome & Safety</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">To ensure your protection and provide the best tanning experience, please review our guidelines.</Text>
+                
+                <GlassCard style={{ 
+                  padding: 20, 
+                  borderRadius: 32, 
+                  backgroundColor: "rgba(0,0,0,0.4)", 
+                  borderWidth: 2, 
+                  borderColor: "rgba(255,255,255,0.8)" 
+                }}>
+                  <View className="flex-row items-center mb-3">
+                    <ShieldCheck size={24} color={COLORS.accentYellow} />
+                    <Text className="ml-4 text-lg font-black text-white">Legal Agreement</Text>
+                  </View>
+                  <Text className="text-sm leading-[20px] text-white/60 mb-6">
+                    By using Glowy, you agree that environmental data and exposure timers are scientific estimates for guidance. Always follow safe sun practices and your physician's advice.
+                  </Text>
+                  
+                  <TouchableOpacity 
+                    onPress={() => setAcceptedLegal(!acceptedLegal)}
+                    className="flex-row items-center bg-white/5 p-5 rounded-[24px] border border-white/40"
+                    activeOpacity={0.8}
+                  >
+                    <View className={`h-6 w-6 rounded-md border-2 items-center justify-center ${acceptedLegal ? 'bg-accentYellow border-accentYellow' : 'border-white/40'}`}>
+                      {acceptedLegal && <Check size={14} color="black" strokeWidth={4} />}
+                    </View>
+                    <Text className="ml-4 flex-1 text-sm font-bold text-white">
+                      I agree to the{" "}
+                      <Text 
+                        onPress={() => { setLegalType("terms"); setLegalVisible(true); }}
+                        className="text-accentYellow underline"
+                      >
+                        Terms
+                      </Text>{" "}
+                      &{" "}
+                      <Text 
+                        onPress={() => { setLegalType("privacy"); setLegalVisible(true); }}
+                        className="text-accentYellow underline"
+                      >
+                        Privacy Policy
+                      </Text>
+                    </Text>
+                  </TouchableOpacity>
+                </GlassCard>
+              </>
+            )}
+
+            {step === 1 && (
+              <>
                 <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Your Skin Tone</Text>
                 <Text className="mb-8 text-base leading-[22px] text-white/70">Select the tone that best matches your skin</Text>
                 <ScrollView 
@@ -152,30 +220,51 @@ export default function OnboardingScreen() {
                   contentContainerStyle={{ paddingBottom: 160 }}
                 >
                   <View className="flex-row flex-wrap justify-between">
-                    {FITZPATRICK_TYPES.map((t) => (
-                      <TouchableOpacity
-                        key={t.level}
-                        onPress={() => setFitzpatrick(t.level)}
-                        className="mb-4 w-[45%] items-center rounded-[20px] border p-4"
-                        style={{
-                          backgroundColor: fitzpatrick === t.level ? "rgba(255,222,0,0.15)" : "rgba(255,255,255,0.1)",
-                          borderColor: fitzpatrick === t.level ? COLORS.accentYellow : "transparent",
-                        }}
+                    {FITZPATRICK_TYPES.map((type) => (
+                      <TouchableOpacity 
+                        key={type.level} 
+                        onPress={() => setFitzpatrick(type.level)}
+                        style={{ width: 170, height: 170, marginBottom: 6  }}
+                        activeOpacity={0.8}
                       >
-                        <View
-                          className="mb-3 h-[60px] w-[60px] rounded-full"
+                        <GlassCard 
                           style={{
-                            backgroundColor: t.hex,
-                            shadowColor: "#000",
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 5,
-                            elevation: 5,
+                            flex: 1,
+                            padding: 16,
+                            borderRadius: 32,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderWidth: fitzpatrick === type.level ? 3 : 2,
+                            borderColor: fitzpatrick === type.level ? COLORS.accentYellow : "rgba(255,255,255,0.8)",
+                            backgroundColor: fitzpatrick === type.level ? "rgba(255,222,0,0.15)" : "rgba(0,0,0,0.4)",
+                            shadowColor: fitzpatrick === type.level ? COLORS.accentYellow : "transparent",
+                            shadowOpacity: 0.6,
+                            shadowRadius: 15,
+                            elevation: fitzpatrick === type.level ? 10 : 0
                           }}
-                        />
-                        <Text className="text-sm font-semibold" style={{ color: fitzpatrick === t.level ? COLORS.accentYellow : "#FFF" }}>
-                          {t.label}
-                        </Text>
+                        >
+                          <View 
+                            className="h-20 w-20 rounded-full items-center justify-center shadow-lg"
+                            style={{ 
+                              backgroundColor: type.hex,
+                              shadowColor: "#000",
+                              shadowOpacity: 0.3,
+                              shadowRadius: 5
+                            }}
+                          >
+                            {fitzpatrick === type.level && (
+                              <View className="bg-black/20 p-2 rounded-full">
+                                <Check color="white" size={24} strokeWidth={4} />
+                              </View>
+                            )}
+                          </View>
+                          <Text 
+                            className="mt-4 text-[12px] font-black text-center uppercase tracking-[2px]"
+                            style={{ color: fitzpatrick === type.level ? COLORS.accentYellow : "rgba(255,255,255,0.7)" }}
+                          >
+                            Type {type.level}
+                          </Text>
+                        </GlassCard>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -183,7 +272,7 @@ export default function OnboardingScreen() {
               </>
             )}
 
-            {step === 1 && (
+            {step === 2 && (
               <>
                 <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Sun Reaction</Text>
                 <Text className="mb-8 text-base leading-[22px] text-white/70">How does your skin react to direct sunlight?</Text>
@@ -199,42 +288,14 @@ export default function OnboardingScreen() {
                           alignItems: "center",
                           padding: 20,
                           marginBottom: 12,
-                          borderWidth: 1,
-                          borderColor: reaction === opt.id ? COLORS.accentYellow : "transparent",
-                          backgroundColor: reaction === opt.id ? "rgba(255,222,0,0.1)" : undefined,
-                        }}
-                      >
-                        <Text className="mr-5 text-[32px]">{opt.emoji}</Text>
-                        <View className="flex-1">
-                          <Text className="mb-1 text-lg font-bold text-white">{opt.label}</Text>
-                          <Text className="text-sm text-white/60">{opt.description}</Text>
-                        </View>
-                      </GlassCard>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Current Tan</Text>
-                <Text className="mb-8 text-base leading-[22px] text-white/70">What is your current base tan level?</Text>
-                <ScrollView 
-                  showsVerticalScrollIndicator={false} 
-                  contentContainerStyle={{ paddingBottom: 160 }}
-                >
-                  {BASE_TAN_OPTIONS.map((opt) => (
-                    <TouchableOpacity key={opt.id} onPress={() => setBaseTan(opt.id)} activeOpacity={0.8}>
-                      <GlassCard 
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          padding: 20,
-                          marginBottom: 12,
-                          borderWidth: 1,
-                          borderColor: baseTan === opt.id ? COLORS.accentYellow : "transparent",
-                          backgroundColor: baseTan === opt.id ? "rgba(255,222,0,0.1)" : undefined,
+                          borderRadius: 32,
+                          borderWidth: reaction === opt.id ? 3 : 2,
+                          borderColor: reaction === opt.id ? COLORS.accentYellow : "rgba(255,255,255,0.8)",
+                          backgroundColor: reaction === opt.id ? "rgba(255,222,0,0.15)" : "rgba(0,0,0,0.4)",
+                          shadowColor: reaction === opt.id ? COLORS.accentYellow : "transparent",
+                          shadowOpacity: 0.6,
+                          shadowRadius: 15,
+                          elevation: reaction === opt.id ? 10 : 0
                         }}
                       >
                         <Text className="mr-5 text-[32px]">{opt.emoji}</Text>
@@ -251,6 +312,44 @@ export default function OnboardingScreen() {
 
             {step === 3 && (
               <>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Current Tan</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">What is your current base tan level?</Text>
+                <ScrollView 
+                  showsVerticalScrollIndicator={false} 
+                  contentContainerStyle={{ paddingBottom: 160 }}
+                >
+                  {BASE_TAN_OPTIONS.map((opt) => (
+                    <TouchableOpacity key={opt.id} onPress={() => setBaseTan(opt.id)} activeOpacity={0.8}>
+                      <GlassCard 
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          padding: 20,
+                          marginBottom: 12,
+                          borderRadius: 32,
+                          borderWidth: baseTan === opt.id ? 3 : 2,
+                          borderColor: baseTan === opt.id ? COLORS.accentYellow : "rgba(255,255,255,0.8)",
+                          backgroundColor: baseTan === opt.id ? "rgba(255,222,0,0.15)" : "rgba(0,0,0,0.4)",
+                          shadowColor: baseTan === opt.id ? COLORS.accentYellow : "transparent",
+                          shadowOpacity: 0.6,
+                          shadowRadius: 15,
+                          elevation: baseTan === opt.id ? 10 : 0
+                        }}
+                      >
+                        <Text className="mr-5 text-[32px]">{opt.emoji}</Text>
+                        <View className="flex-1">
+                          <Text className="mb-1 text-lg font-bold text-white">{opt.label}</Text>
+                          <Text className="text-sm text-white/60">{opt.description}</Text>
+                        </View>
+                      </GlassCard>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {step === 4 && (
+              <>
                 <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Preferred SPF</Text>
                 <Text className="mb-8 text-base leading-[22px] text-white/70">Which protection factor will you use today?</Text>
                 <ScrollView 
@@ -262,30 +361,42 @@ export default function OnboardingScreen() {
                       <TouchableOpacity 
                         key={opt.value + opt.label} 
                         onPress={() => setSpf(opt.value)} 
-                        className="mb-4 w-[47%]"
+                        style={{ width: 170, height: 170, marginBottom: 6 }}
+                        activeOpacity={0.8}
                       >
-                        <GlassCard 
-                          style={{
-                            height: 140,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderWidth: 1,
-                            borderColor: spf === opt.value ? COLORS.accentYellow : "transparent",
-                            backgroundColor: spf === opt.value ? "rgba(255,222,0,0.15)" : undefined,
-                          }}
-                        >
-                          <Text 
-                            className="font-black text-white"
+                          <GlassCard 
                             style={{
-                              fontSize: opt.value === 0 ? 28 : 42,
-                              color: spf === opt.value ? COLORS.accentYellow : "#FFF",
+                              flex: 1,
+                              borderRadius: 32,
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: 20,
+                              borderWidth: spf === opt.value ? 3 : 2,
+                              borderColor: spf === opt.value ? COLORS.accentYellow : "rgba(255,255,255,0.8)",
+                              backgroundColor: spf === opt.value ? "rgba(255,222,0,0.15)" : "rgba(0,0,0,0.4)",
+                              shadowColor: spf === opt.value ? COLORS.accentYellow : "transparent",
+                              shadowOpacity: 0.6,
+                              shadowRadius: 15,
+                              elevation: spf === opt.value ? 10 : 0
                             }}
                           >
-                            {opt.label}
-                          </Text>
-                          {opt.value !== 0 && <Text className="-mt-1 text-sm font-bold uppercase text-white/50">SPF</Text>}
-                        </GlassCard>
-                      </TouchableOpacity>
+                            <Text 
+                              className="font-black text-center"
+                              style={{
+                                fontSize: 42,
+                                color: spf === opt.value ? COLORS.accentYellow : "#FFF",
+                                lineHeight: 48
+                              }}
+                            >
+                              {opt.label}
+                            </Text>
+                            {opt.value !== 0 && (
+                              <Text className="text-[10px] font-black text-center uppercase text-white/40 tracking-[2px]">
+                                SPF FACTOR
+                              </Text>
+                            )}
+                          </GlassCard>
+                        </TouchableOpacity>
                     ))}
                   </View>
                 </ScrollView>
@@ -318,6 +429,12 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        <LegalModal 
+          visible={legalVisible} 
+          type={legalType} 
+          onClose={() => setLegalVisible(false)} 
+        />
       </View>
     </GradientBackground>
   );

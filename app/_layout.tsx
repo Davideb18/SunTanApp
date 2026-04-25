@@ -21,6 +21,8 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style="light" />
         <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
+          {/* Splash screen - Entry point */}
+          <Stack.Screen name="index" options={{ headerShown: false, animation: "fade" }} />
           {/* Main tab navigator — no header */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           {/* Onboarding shown as a full-screen modal */}
