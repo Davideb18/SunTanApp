@@ -18,10 +18,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { COLORS } from "@/constants/theme";
-import { GlassCard } from "@/components/GlassCard";
-import { LegalModal } from "@/components/LegalModal";
-
 import { useAppStore } from "@/store/useAppStore";
 import {
   FITZPATRICK_TYPES,
@@ -42,7 +38,7 @@ const { width } = Dimensions.get("window");
 
 /**
  * Premium Progress Bar
- * A simple, vibrant linear bar that fills with the app's signature yellow.
+ * A vibrant linear bar with a clipped gradient that reveals as progress grows.
  */
 const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) => {
   const progress = (currentStep + 1) / totalSteps;
@@ -54,11 +50,18 @@ const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSt
   });
 
   return (
-    <View className="mx-4 flex-1">
+    <View className="mx-4 flex-1 mt-5">
       <View className="h-2 overflow-hidden rounded bg-white/15">
-        <Animated.View className="h-full rounded bg-accentYellow" style={animatedStyle} />
+        <Animated.View className="h-full overflow-hidden rounded" style={animatedStyle}>
+          <LinearGradient
+            colors={["#ffb300", "#ef4444"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ height: "100%", width: "100%" }}
+          />
+        </Animated.View>
       </View>
-      <Text className="mt-2 text-center text-xs font-bold uppercase tracking-[1px] text-white/50">
+      <Text className="mt-2 text-center text-xs font-bold uppercase tracking-[1px] text-white">
         Step {currentStep + 1} of {totalSteps}
       </Text>
     </View>
@@ -158,7 +161,7 @@ export default function OnboardingScreen() {
                 <View className="mb-10">
                   <Text className="text-[42px] font-black tracking-[-2px] text-white">GLOWY</Text>
                   <LinearGradient
-                    colors={[COLORS.accentYellow, "#ef4444"]}
+                    colors={["#ef4444", "#ed9121"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={{ height: 6, width: 40, borderRadius: 3, marginTop: -2 }}

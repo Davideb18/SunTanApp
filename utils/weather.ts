@@ -28,7 +28,7 @@ export interface WeatherData {
 export async function fetchWeatherData(): Promise<WeatherData> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") {
-    throw new Error("Permission to access location was denied");
+    throw new Error("LOCATION_PERMISSION_DENIED");
   }
 
   const location = await Location.getCurrentPositionAsync({
@@ -37,7 +37,7 @@ export async function fetchWeatherData(): Promise<WeatherData> {
   const { latitude, longitude } = location.coords;
 
   const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-  const city = geocode[0]?.city || geocode[0]?.region || "Your Location";
+  const city = geocode[0]?.city || geocode[0]?.region || "La tua zona";
 
   // Fetch advanced solar radiation metrics
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,uv_index,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=uv_index&daily=uv_index_max,temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code&timezone=auto&past_days=1&forecast_days=8`;

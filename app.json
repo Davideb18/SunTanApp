@@ -16,9 +16,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.glowy.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Glowy ha bisogno della tua posizione per fornirti l'indice UV in tempo reale nella tua zona.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Glowy utilizza la tua posizione per monitorare l'indice UV e avvisarti quando è necessario riapplicare la crema.",
-        "NSLocationAlwaysUsageDescription": "Glowy utilizza la tua posizione per monitorare l'indice UV anche in background per la tua sicurezza solare."
+        "NSLocationWhenInUseUsageDescription": "Consenti a Glowy di accedere alla tua posizione mentre usi l'app per mostrarti l'indice UV in tempo reale.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Consenti a Glowy di accedere alla tua posizione per monitorare l'indice UV e avvisarti quando riapplicare la protezione solare.",
+        "NSLocationAlwaysUsageDescription": "Consenti a Glowy di accedere alla tua posizione anche in background per monitorare l'indice UV e aiutarti a esporti al sole in sicurezza."
       }
     },
     "android": {
@@ -42,7 +42,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Glowy ha bisogno della tua posizione per fornirti l'indice UV in tempo reale."
+          "locationWhenInUsePermission": "Consenti a Glowy di usare la tua posizione per mostrarti l'indice UV in tempo reale."
         }
       ]
     ],

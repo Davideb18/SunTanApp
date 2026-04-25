@@ -77,7 +77,11 @@ export default function WeatherScreen() {
       setCachedCurrentUv(data.currentUv);
     } catch (err) {
       console.error(err);
-      setErrorMsg("Unable to fetch weather data.");
+      if (err instanceof Error && err.message === "LOCATION_PERMISSION_DENIED") {
+        setErrorMsg("Attiva la localizzazione per vedere indice UV e meteo della tua zona.");
+      } else {
+        setErrorMsg("Impossibile aggiornare i dati meteo. Riprova tra poco.");
+      }
     } finally {
       setLoading(false);
     }
@@ -141,13 +145,13 @@ export default function WeatherScreen() {
         <View className="mb-6">
           <Text className="text-[32px] font-black tracking-[-1px] text-white">Environment</Text>
           <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
-            {loading ? "Detecting location..." : weather?.locationName || "Location not found"}
+            {loading ? "Rilevamento posizione..." : weather?.locationName || "Posizione non disponibile"}
           </Text>
         </View>
 
         {errorMsg && (
           <GlassCard style={{ padding: 16, backgroundColor: "rgba(255,59,48,0.1)", borderColor: "#FF3B30", borderWidth: 1, marginBottom: 16 }}>
-            <Text className="text-center text-sm font-semibold text-[#FF3B30]">{errorMsg}</Text>
+            <Text className="text-center text-sm font-black tracking-[0.2px] text-[#FF3B30]">{errorMsg}</Text>
           </GlassCard>
         )}
 
