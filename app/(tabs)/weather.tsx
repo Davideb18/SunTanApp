@@ -1,57 +1,89 @@
-/**
- * Weather Screen — app/(tabs)/weather.tsx
- *
- * Displays live UV index data fetched from Open-Meteo using the
- * device's GPS coordinates. Shows a horizontal timeline of UV bars
- * similar to Apple Weather.
- */
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Dimensions } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, Dimensions, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Clock, Droplet, Dna, TrendingUp, Sparkles, Cloud, AlertTriangle, Calendar, Moon, Sun, CloudRain, CloudSnow, CloudLightning, SunDim, CloudSun, CloudDrizzle, CloudFog, Zap, Layers, Info, ShieldCheck } from "lucide-react-native";
-import { useFocusEffect } from "@react-navigation/native";
-
-const getWeatherIcon = (code: number, size: number = 18, color: string = COLORS.accentYellow) => {
-  // WMO Weather interpretation codes (WW)
-  // 0, 1: Clear sky, Mainly clear
-  if (code === 0 || code === 1) return <Sun size={size} color={color} />;
-  // 2: Partly cloudy
-  if (code === 2) return <CloudSun size={size} color={color} />;
-  // 3: Overcast
-  if (code === 3) return <Cloud size={size} color="#94A3B8" />;
-  // 45, 48: Fog
-  if (code === 45 || code === 48) return <CloudFog size={size} color="#94A3B8" />;
-  // 51, 53, 55: Drizzle
-  if (code >= 51 && code <= 55) return <CloudDrizzle size={size} color="#60A5FA" />;
-  // 61, 63, 65, 80, 81, 82: Rain
-  if ((code >= 61 && code <= 65) || (code >= 80 && code <= 82)) return <CloudRain size={size} color="#3B82F6" />;
-  // 71, 73, 75, 77, 85, 86: Snow
-  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return <CloudSnow size={size} color="#E2E8F0" />;
-  // 95, 96, 99: Thunderstorm
-  if (code >= 95 && code <= 99) return <CloudLightning size={size} color="#FACC15" />;
-  
-  return <Sun size={size} color={color} />;
-};
+import * as ExpoLocation from "expo-location";
+import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { 
+  Clock, Droplet, Dna, TrendingUp, Sparkles, Cloud, 
+  AlertTriangle, Calendar, Moon, Sun, CloudRain, 
+  CloudSnow, CloudLightning, SunDim, CloudSun, 
+  CloudDrizzle, CloudFog, Zap, Layers, Info, 
+  ShieldCheck, Globe, Coins 
+} from "lucide-react-native";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 
 import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { useAppStore } from "@/store/useAppStore";
 import { getUvBand, COLORS } from "@/constants/theme";
 import { fetchWeatherData, WeatherData } from "@/utils/weather";
+import { HeaderButtons } from "../../components/HeaderButtons";
+import { PremiumModal } from "../../components/PremiumModal";
+import { AmbassadorCard } from "../../components/AmbassadorCard";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+const getWeatherIcon = (code: number, size: number = 18, color: string = COLORS.accentYellow) => {
+  if (code === 0 || code === 1) return <Sun size={size} color={color} />;
+  if (code === 2) return <CloudSun size={size} color={color} />;
+  if (code === 3) return <Cloud size={size} color="#94A3B8" />;
+  if (code === 45 || code === 48) return <CloudFog size={size} color="#94A3B8" />;
+  if (code >= 51 && code <= 55) return <CloudDrizzle size={size} color="#60A5FA" />;
+  if ((code >= 61 && code <= 65) || (code >= 80 && code <= 82)) return <CloudRain size={size} color="#3B82F6" />;
+  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return <CloudSnow size={size} color="#E2E8F0" />;
+  if (code >= 95 && code <= 99) return <CloudLightning size={size} color="#FACC15" />;
+  return <Sun size={size} color={color} />;
+};
 
 const TIMELINE_ITEM_WIDTH = 42;
 const TIMELINE_ITEM_GAP = 12;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function WeatherScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const params = useLocalSearchParams();
   const { cachedCurrentUv, setCachedCurrentUv, history, dailyGoalMinutes } = useAppStore();
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
+  const [permissionStatus, setPermissionStatus] = useState<string | null>(null);
+
+  const [premiumVisible, setPremiumVisible] = useState(false);
+  const mainScrollRef = React.useRef<ScrollView>(null);
+  const ambassadorRef = React.useRef<View>(null);
+
+  const scrollToAmbassador = () => {
+    ambassadorRef.current?.measure((x, y, width, height, pageX, pageY) => {
+      // Center ambassador card in viewport
+      const screenHeight = Dimensions.get('window').height;
+      const centeredY = y - (screenHeight / 2) + (height / 2);
+      
+      mainScrollRef.current?.scrollTo({ 
+        y: Math.max(0, centeredY), 
+        animated: true 
+      });
+    });
+  };
+
+  useEffect(() => {
+    if (params.scrollToAmbassador === 'true') {
+      setTimeout(() => {
+        scrollToAmbassador();
+      }, 500);
+    }
+  }, [params.scrollToAmbassador]);
 
   // Calculate Real Stats from History
   const today = new Date().toISOString().split('T')[0];
@@ -66,22 +98,54 @@ export default function WeatherScreen() {
   const dailyProgress = Math.min((dailySeconds / targetSeconds) * 100, 100);
 
   const scrollRef = React.useRef<ScrollView>(null);
-  const timelineSidePadding = (timelineViewportWidth - TIMELINE_ITEM_WIDTH) / 2;
+  const timelineSidePadding = Math.max((timelineViewportWidth - TIMELINE_ITEM_WIDTH) / 2, 0);
+
+  const centerTimelineOnNow = useCallback((animated: boolean = false) => {
+    if (!weather?.hourlyUvData?.length) return;
+
+    const nowIndex = Math.floor(weather.hourlyUvData.length / 2);
+    const xOffset = nowIndex * (TIMELINE_ITEM_WIDTH + TIMELINE_ITEM_GAP);
+
+    scrollRef.current?.scrollTo({ x: xOffset, y: 0, animated });
+  }, [weather]);
 
   const loadWeather = async () => {
     try {
       setLoading(true);
       setErrorMsg(null);
+      
+      // Check status before requesting
+      const { status: currentStatus } = await ExpoLocation.getForegroundPermissionsAsync();
+      setPermissionStatus(currentStatus);
+
       const data = await fetchWeatherData();
       setWeather(data);
       setCachedCurrentUv(data.currentUv);
+      setPermissionStatus("granted");
     } catch (err) {
       console.error(err);
       if (err instanceof Error && err.message === "LOCATION_PERMISSION_DENIED") {
-        setErrorMsg("Attiva la localizzazione per vedere indice UV e meteo della tua zona.");
+        setPermissionStatus("denied");
+        setErrorMsg("Enable location to view UV index and weather for your area.");
       } else {
-        setErrorMsg("Impossibile aggiornare i dati meteo. Riprova tra poco.");
+        setErrorMsg("Unable to refresh weather data. Please try again shortly.");
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestPermission = async () => {
+    try {
+      setLoading(true);
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      setPermissionStatus(status);
+      if (status === 'granted') {
+        loadWeather();
+      }
+    } catch (e) {
+      console.error(e);
+      setErrorMsg("Error while requesting permissions.");
     } finally {
       setLoading(false);
     }
@@ -91,18 +155,36 @@ export default function WeatherScreen() {
     loadWeather();
   }, []);
 
+  useEffect(() => {
+    if (!weather?.hourlyUvData?.length || timelineViewportWidth <= 0) return;
+
+    const timer = setTimeout(() => {
+      centerTimelineOnNow(false);
+    }, 80);
+
+    return () => clearTimeout(timer);
+  }, [weather, timelineViewportWidth, centerTimelineOnNow]);
+
   useFocusEffect(
     useCallback(() => {
-      if (scrollRef.current && weather) {
-        setTimeout(() => {
-          scrollRef.current?.scrollTo({
-            x: 12 * (TIMELINE_ITEM_WIDTH + TIMELINE_ITEM_GAP),
-            animated: true,
-          });
-        }, 300);
-      }
-    }, [weather])
+      if (!weather?.hourlyUvData?.length || timelineViewportWidth <= 0) return;
+
+      const raf = requestAnimationFrame(() => {
+        centerTimelineOnNow(false);
+      });
+
+      return () => cancelAnimationFrame(raf);
+    }, [weather, timelineViewportWidth, centerTimelineOnNow])
   );
+
+  useEffect(() => {
+    if (params.scrollToAmbassador === 'true') {
+      // Small timeout to ensure layout is ready
+      setTimeout(() => {
+        scrollToAmbassador();
+      }, 500);
+    }
+  }, [params.scrollToAmbassador]);
 
   const getVividUvColor = (uv: number) => {
     if (uv < 3) return "#4ADE80";
@@ -133,21 +215,71 @@ export default function WeatherScreen() {
   const maxDailyUv = weather ? Math.max(...weather.hourlyUvData, 1) : 1;
   const burnRisk = weather ? getBurnRisk(weather.currentUv, weather.humidity, weather.cloudCover) : { label: "LOW", color: "#22C55E", emoji: "✅" };
   const safeWindow = getSafeWindow(cachedCurrentUv);
+  const tomorrowForecast = weather?.dailyForecast[1] ?? weather?.dailyForecast[0];
+  const strategyStart = tomorrowForecast?.strategyStartTime ?? tomorrowForecast?.bestStartTime ?? "--:--";
+  const strategyEnd = tomorrowForecast?.strategyEndTime ?? tomorrowForecast?.bestEndTime ?? "--:--";
+  const peakRainProbability = Math.round(tomorrowForecast?.peakRainProbability ?? 0);
+  const strategyRainProbability = Math.round(tomorrowForecast?.strategyRainProbability ?? 0);
+
+  useEffect(() => {
+    const notifyRainyTomorrow = async () => {
+      if (!tomorrowForecast?.rainExpected) return;
+
+      const notificationKey = "weather_tomorrow_rain_notification_date";
+      const alreadyNotifiedDate = await AsyncStorage.getItem(notificationKey);
+      if (alreadyNotifiedDate === tomorrowForecast.date) return;
+
+      let { status } = await Notifications.getPermissionsAsync();
+      if (status !== "granted") {
+        const requested = await Notifications.requestPermissionsAsync();
+        status = requested.status;
+      }
+      if (status !== "granted") return;
+
+      const bodyText = tomorrowForecast.hasDryFallback
+        ? `UV peak is rainy (${peakRainProbability}%). Suggested fallback window: ${strategyStart} - ${strategyEnd} (rain ${strategyRainProbability}%, not optimal).`
+        : `Rain expected during UV peak (${peakRainProbability}%). No dry optimal window available tomorrow.`;
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Tomorrow Strategy: Rain Expected",
+          body: bodyText,
+        },
+        trigger: null,
+      });
+
+      await AsyncStorage.setItem(notificationKey, tomorrowForecast.date);
+    };
+
+    notifyRainyTomorrow().catch((error) => {
+      console.error("Notification error", error);
+    });
+  }, [tomorrowForecast, strategyStart, strategyEnd]);
 
   return (
     <GradientBackground>
       <ScrollView
+        ref={mainScrollRef}
         className="flex-1"
         contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 100, paddingHorizontal: 20 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View className="mb-6">
-          <Text className="text-[32px] font-black tracking-[-1px] text-white">Environment</Text>
-          <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
-            {loading ? "Rilevamento posizione..." : weather?.locationName || "Posizione non disponibile"}
-          </Text>
+        <View className="mb-6 flex-row items-center justify-between">
+          <View>
+            <Text className="text-[32px] font-black tracking-[-1px] text-white">Environment</Text>
+            <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/80">
+              {loading ? "Detecting location..." : weather?.locationName || "Location unavailable"}
+            </Text>
+          </View>
+          
+          <HeaderButtons 
+            onEarnPress={scrollToAmbassador}
+            onProPress={() => setPremiumVisible(true)}
+          />
         </View>
+
+        <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
 
         {errorMsg && (
           <GlassCard style={{ padding: 16, backgroundColor: "rgba(255,59,48,0.1)", borderColor: "#FF3B30", borderWidth: 1, marginBottom: 16 }}>
@@ -242,9 +374,10 @@ export default function WeatherScreen() {
                 contentContainerStyle={{ alignItems: "flex-end", paddingHorizontal: timelineSidePadding, paddingBottom: 30 }}
               >
                 {weather.hourlyUvData.map((uv, index) => {
-                  const isNow = index === 12;
+                  const nowTimelineIndex = Math.floor(weather.hourlyUvData.length / 2);
+                  const isNow = index === nowTimelineIndex;
                   const nowHour = new Date().getHours();
-                  const itemHour = (nowHour - 12 + index + 24) % 24;
+                  const itemHour = (nowHour - nowTimelineIndex + index + 24) % 24;
                   const barColor = getVividUvColor(uv);
                   const barHeight = Math.max((uv / maxDailyUv) * 90, 8);
                   let hourLabel = isNow ? "NOW" : (itemHour === 0 ? "12A" : (itemHour === 12 ? "12P" : (itemHour > 12 ? `${itemHour - 12}P` : `${itemHour}A`)));
@@ -342,21 +475,35 @@ export default function WeatherScreen() {
                     <Text className="ml-3 text-base font-black text-white">Tomorrow's Strategy</Text>
                   </View>
                   <View className="bg-accentYellow/10 border border-accentYellow/20 px-3 py-1 rounded-xl">
-                    <Text className="text-[10px] font-black text-accentYellow uppercase">Best: {weather.dailyForecast[0].bestStartTime}</Text>
+                    <Text className="text-[10px] font-black text-accentYellow uppercase">Best: {strategyStart}</Text>
                   </View>
                </View>
                <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center">
-                    {getWeatherIcon(weather.dailyForecast[0].weatherCode, 32)}
+                    {getWeatherIcon(tomorrowForecast?.weatherCode ?? 0, 32)}
                     <View className="ml-4">
-                      <Text className="text-3xl font-black text-white">{weather.dailyForecast[0].tempMax.toFixed(0)}°</Text>
-                      <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px]">Peak UV {weather.dailyForecast[0].uvMax.toFixed(1)}</Text>
+                      <Text className="text-3xl font-black text-white">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°</Text>
+                      <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px]">Peak UV {(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text>
                     </View>
                   </View>
                   <View className="flex-1 ml-8 pl-6 border-l border-white/10">
-                    <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
-                      Optimal window for tanning: <Text className="text-white font-black">{weather.dailyForecast[0].bestStartTime} - {weather.dailyForecast[0].bestEndTime}</Text>. Use SPF 30+.
-                    </Text>
+                    {tomorrowForecast?.rainExpected ? (
+                      <View>
+                        <View className="flex-row items-center mb-2">
+                          <AlertTriangle size={12} color="#F97316" />
+                          <Text className="ml-2 text-[10px] font-black uppercase tracking-[1px] text-[#F97316]">Rain Alert</Text>
+                        </View>
+                        <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
+                          {tomorrowForecast.hasDryFallback
+                            ? <>Rain expected at UV peak (<Text className="text-white font-black">{peakRainProbability}%</Text>). Suggested window: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text> (<Text className="text-white font-black">{strategyRainProbability}%</Text> rain, not optimal).</>
+                            : <>Rain expected at UV peak (<Text className="text-white font-black">{peakRainProbability}%</Text>). No dry optimal window tomorrow; reference slot: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>.</>}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
+                        Optimal window: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>. Rain probability: <Text className="text-white font-black">{strategyRainProbability}%</Text>. Use SPF 30+.
+                      </Text>
+                    )}
                   </View>
                </View>
             </GlassCard>
@@ -373,8 +520,8 @@ export default function WeatherScreen() {
               </View>
             </View>
             <View className="gap-2">
-              {weather.dailyForecast.slice(1).map((day, idx) => (
-                <View key={idx} className={`flex-row items-center justify-between py-4 ${idx < weather.dailyForecast.length - 2 ? 'border-b border-white/5' : ''}`}>
+              {weather.dailyForecast.map((day, idx) => (
+                <View key={idx} className={`flex-row items-center justify-between py-4 ${idx < weather.dailyForecast.length - 1 ? 'border-b border-white/5' : ''}`}>
                   <Text className="flex-1 text-[15px] font-bold text-white/60">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' })}</Text>
                   <View className="flex-row items-center flex-[1.5] justify-center">
                     {getWeatherIcon(day.weatherCode, 20)}
@@ -390,6 +537,13 @@ export default function WeatherScreen() {
               ))}
             </View>
           </GlassCard>
+        )}
+
+        {/* 6. AMBASSADOR PROGRAM */}
+        {!loading && weather && (
+          <View ref={ambassadorRef}>
+            <AmbassadorCard />
+          </View>
         )}
 
         {/* Scientific Intelligence & Safety Footer */}

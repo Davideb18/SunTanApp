@@ -93,7 +93,7 @@ export interface AppState {
   }) => void;
 
   // ── Session Actions ───────────────────────────────────────────────────────
-  startSession: (mode: EngineMode, totalSeconds: number) => void;
+  startSession: (mode: EngineMode, totalSeconds: number, options?: { cycles?: number }) => void;
   pauseSession: () => void;
   resumeSession: () => void;
   cancelSession: () => void;
@@ -124,7 +124,8 @@ function generatePhases(
   totalSeconds: number, 
   fitzpatrickLevel: number, 
   uvIndex: number,
-  mode: EngineMode
+  mode: EngineMode,
+  rotationCount?: number
 ): SessionPhase[] {
   const phases: SessionPhase[] = [];
   
@@ -148,59 +149,37 @@ function generatePhases(
     return phases;
   }
 
-  // 3. Coach Mode - Scientific Rotation Timing
-  let rotationTime = 1800; // Default 30m
-  const subType = fitzpatrickLevel <= 2 ? "sensitive" : fitzpatrickLevel >= 5 ? "resistant" : "normal";
+  // 3. Coach Mode - derived rotation timing
+  let safeRotationCount = Math.max(2, Math.min(rotationCount ?? 4, 8));
+  let flipDuration = safeRotationCount > 1 ? 30 * (safeRotationCount - 1) : 0;
+  let coachExposureSeconds = totalSeconds - sunscreenTime - flipDuration;
 
-  if (subType === "sensitive") {
-    rotationTime = uvIndex > 8 ? 600 : 900; // 10m or 15m
-  } else if (subType === "normal") {
-    rotationTime = uvIndex > 8 ? 1200 : 1800; // 20m or 30m
-  } else {
-    rotationTime = uvIndex > 8 ? 1800 : 2700; // 30m or 45m
+  while (safeRotationCount > 2 && coachExposureSeconds < safeRotationCount * 30) {
+    safeRotationCount -= 1;
+    flipDuration = safeRotationCount > 1 ? 30 * (safeRotationCount - 1) : 0;
+    coachExposureSeconds = totalSeconds - sunscreenTime - flipDuration;
   }
 
-  // Generate Cycles
-  let timeAllocated = 0;
-  let cycleCount = 0;
+  coachExposureSeconds = Math.max(coachExposureSeconds, safeRotationCount * 30);
+  const baseExposure = Math.floor(coachExposureSeconds / safeRotationCount);
+  let remainder = coachExposureSeconds - baseExposure * safeRotationCount;
   let side: "front" | "back" = "front";
-  let lastHydration = 0;
 
-  // If total time is less than rotation time but enough to split, force a split
-  if (exposureSeconds < rotationTime && exposureSeconds > 600) {
-    rotationTime = Math.floor(exposureSeconds / 2);
-  }
+  for (let index = 0; index < safeRotationCount; index += 1) {
+    const duration = baseExposure + (remainder > 0 ? 1 : 0);
+    remainder -= 1;
 
-  while (timeAllocated < exposureSeconds) {
-    const remainingInSession = exposureSeconds - timeAllocated;
-    const phaseDuration = Math.min(rotationTime, remainingInSession);
-
-    // Add Exposure Phase
-    phases.push({ 
-      label: `${side.toUpperCase()} SIDE ${Math.floor(cycleCount / 2) + 1}`, 
-      duration: phaseDuration, 
-      type: side 
+    phases.push({
+      label: `${side.toUpperCase()} SIDE ${index + 1}`,
+      duration,
+      type: side,
     });
 
-    timeAllocated += phaseDuration;
-    lastHydration += phaseDuration;
-
-    // Flip side for next round
-    if (timeAllocated < exposureSeconds) {
-      if (side === "front") {
-        phases.push({ label: "FLIP POSITION", duration: 30, type: "flip" });
-        timeAllocated += 30;
-      }
-      side = side === "front" ? "back" : "front";
-      cycleCount++;
+    if (index < safeRotationCount - 1) {
+      phases.push({ label: "FLIP POSITION", duration: 30, type: "flip" });
     }
 
-    // Check for Hydration (every ~30 mins)
-    if (lastHydration >= 1800 && timeAllocated < exposureSeconds) {
-      phases.push({ label: "DRINK WATER", duration: 60, type: "hydration" });
-      lastHydration = 0;
-      timeAllocated += 60;
-    }
+    side = side === "front" ? "back" : "front";
   }
 
   return phases;
@@ -271,9 +250,15 @@ export const useAppStore = create<AppState>()(
         })),
 
       // ── Session Actions Implementation ──────────────────────────────────────
-      startSession: (mode, totalSeconds) =>
+      startSession: (mode, totalSeconds, options) =>
         set((state) => {
-          const phases = generatePhases(totalSeconds, state.fitzpatrickLevel || 1, state.cachedCurrentUv, mode);
+          const phases = generatePhases(
+            totalSeconds,
+            state.fitzpatrickLevel || 1,
+            state.cachedCurrentUv,
+            mode,
+            options?.cycles
+          );
           const totalDuration = phases.reduce((acc, p) => acc + p.duration, 0);
           
           return {
