@@ -5,12 +5,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ExpoLocation from "expo-location";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { 
+import {
   Clock, Droplet, Dna, TrendingUp, Sparkles, Cloud, 
   AlertTriangle, Calendar, Moon, Sun, CloudRain, 
   CloudSnow, CloudLightning, SunDim, CloudSun, 
   CloudDrizzle, CloudFog, Zap, Layers, Info, 
-  ShieldCheck, Globe, Coins 
+  ShieldCheck, Globe, Coins, Settings, Lock
 } from "lucide-react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 
@@ -22,6 +22,8 @@ import { fetchWeatherData, WeatherData } from "@/utils/weather";
 import { HeaderButtons } from "../../components/HeaderButtons";
 import { PremiumModal } from "../../components/PremiumModal";
 import { AmbassadorCard } from "../../components/AmbassadorCard";
+import { useTranslation } from "@/constants/i18n";
+import { SettingsModal } from "@/components/SettingsModal";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -49,10 +51,11 @@ const TIMELINE_ITEM_WIDTH = 42;
 const TIMELINE_ITEM_GAP = 12;
 
 export default function WeatherScreen() {
+  const t = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { cachedCurrentUv, setCachedCurrentUv, history, dailyGoalMinutes } = useAppStore();
+  const { cachedCurrentUv, setCachedCurrentUv, history, dailyGoalMinutes, fitzpatrickLevel, hasPremium } = useAppStore();
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +64,7 @@ export default function WeatherScreen() {
   const [permissionStatus, setPermissionStatus] = useState<string | null>(null);
 
   const [premiumVisible, setPremiumVisible] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
   const mainScrollRef = React.useRef<ScrollView>(null);
   const ambassadorRef = React.useRef<View>(null);
 
@@ -78,7 +82,7 @@ export default function WeatherScreen() {
   };
 
   useEffect(() => {
-    if (params.scrollToAmbassador === 'true') {
+    if (params.scrollToAmbassador) {
       setTimeout(() => {
         scrollToAmbassador();
       }, 500);
@@ -178,7 +182,7 @@ export default function WeatherScreen() {
   );
 
   useEffect(() => {
-    if (params.scrollToAmbassador === 'true') {
+    if (params.scrollToAmbassador) {
       // Small timeout to ensure layout is ready
       setTimeout(() => {
         scrollToAmbassador();
@@ -195,25 +199,40 @@ export default function WeatherScreen() {
   };
 
   const getBurnRisk = (uv: number, humidity: number, clouds: number) => {
-    let risk = uv * 1.2;
+    // Skin factor: Type 1 is 1.0 (max risk), Type 6 is ~0.2 (low risk)
+    const skinRiskFactor = Math.max(0.15, 1.2 - (fitzpatrickLevel || 2) * 0.18);
+    
+    let risk = uv * 1.2 * skinRiskFactor;
     if (humidity > 70) risk *= 1.15;
-    if (clouds < 20) risk *= 1.2;
-    if (risk > 10) return { label: "EXTREME", color: "#EF4444", emoji: "🔥" };
-    if (risk > 7) return { label: "HIGH", color: "#F97316", emoji: "⚠️" };
-    if (risk > 4) return { label: "MODERATE", color: "#FBBF24", emoji: "⚖️" };
-    return { label: "LOW", color: "#22C55E", emoji: "✅" };
+    if (clouds < 20) risk *= 1.2; 
+    if (clouds > 80) risk *= 0.7; 
+    
+    if (risk > 10) return { label: t.extreme, color: "#EF4444", emoji: "🔥" };
+    if (risk > 7) return { label: t.high, color: "#F97316", emoji: "⚠️" };
+    if (risk > 4) return { label: t.moderate, color: "#FBBF24", emoji: "⚖️" };
+    return { label: t.low, color: "#22C55E", emoji: "✅" };
+  };
+
+  const getUvLabel = (label: string) => {
+    const key = label.toLowerCase().replace(" ", "") as keyof typeof t;
+    return t[key] || label;
   };
 
   const getSafeWindow = (uv: number) => {
     if (uv <= 0) return "∞";
-    const minutes = Math.round(180 / Math.max(uv, 0.5));
-    if (minutes > 120) return "2h+";
+    // Skin factor: darker skin (higher level) = longer safe window
+    const skinFactor = (fitzpatrickLevel || 2) * 0.8; 
+    const minutes = Math.round((120 * skinFactor) / Math.max(uv, 0.5));
+    
+    if (minutes > 240) return "4h+";
+    if (minutes > 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
     return `${minutes}m`;
   };
 
-  const uvInfo = getUvBand(cachedCurrentUv);
+  const uvInfoRaw = getUvBand(cachedCurrentUv);
+  const uvInfo = { ...uvInfoRaw, label: getUvLabel(uvInfoRaw.label) };
   const maxDailyUv = weather ? Math.max(...weather.hourlyUvData, 1) : 1;
-  const burnRisk = weather ? getBurnRisk(weather.currentUv, weather.humidity, weather.cloudCover) : { label: "LOW", color: "#22C55E", emoji: "✅" };
+  const burnRisk = weather ? getBurnRisk(weather.currentUv, weather.humidity, weather.cloudCover) : { label: t.low, color: "#22C55E", emoji: "✅" };
   const safeWindow = getSafeWindow(cachedCurrentUv);
   const tomorrowForecast = weather?.dailyForecast[1] ?? weather?.dailyForecast[0];
   const strategyStart = tomorrowForecast?.strategyStartTime ?? tomorrowForecast?.bestStartTime ?? "--:--";
@@ -269,17 +288,23 @@ export default function WeatherScreen() {
           <View>
             <Text className="text-[32px] font-black tracking-[-1px] text-white">Environment</Text>
             <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/80">
-              {loading ? "Detecting location..." : weather?.locationName || "Location unavailable"}
+              {loading ? (t.language === "it" ? "Rilevamento posizione..." : "Detecting location...") : weather?.locationName || (t.language === "it" ? "Posizione non disponibile" : "Location unavailable")}
             </Text>
           </View>
           
-          <HeaderButtons 
-            onEarnPress={scrollToAmbassador}
-            onProPress={() => setPremiumVisible(true)}
-          />
+          <View className="flex-row items-center gap-2">
+            <HeaderButtons 
+              onEarnPress={scrollToAmbassador}
+              onProPress={() => setPremiumVisible(true)}
+            />
+            <TouchableOpacity 
+              onPress={() => setSettingsVisible(true)}
+              className="h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/10"
+            >
+              <Settings size={20} color="white" />
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
 
         {errorMsg && (
           <GlassCard style={{ padding: 16, backgroundColor: "rgba(255,59,48,0.1)", borderColor: "#FF3B30", borderWidth: 1, marginBottom: 16 }}>
@@ -361,7 +386,7 @@ export default function WeatherScreen() {
               <View className="flex-row items-center rounded-[10px] border border-[#FFD700]/20 bg-[#FFD700]/10 px-2.5 py-1.5">
                 <Sparkles size={10} color={COLORS.accentYellow} style={{ marginRight: 4 }} />
                 <Text className="text-[10px] font-black tracking-[1px]" style={{ color: COLORS.accentYellow }}>
-                  PEAK {maxDailyUv.toFixed(1)}
+                  {t.peak} {maxDailyUv.toFixed(1)}
                 </Text>
               </View>
             </View>
@@ -400,7 +425,7 @@ export default function WeatherScreen() {
 
             <View className="mt-8 flex-row items-center justify-center bg-white/5 py-3 rounded-2xl border border-white/5">
               <Moon size={14} color="#A78BFA" />
-              <Text className="ml-3 text-[11px] font-black text-white uppercase tracking-[1.5px]">Sunset at {weather.sunset}</Text>
+              <Text className="ml-3 text-[11px] font-black text-white uppercase tracking-[1.5px]">{t.sunsetAt} {weather.sunset}</Text>
             </View>
           </GlassCard>
         )}
@@ -412,8 +437,8 @@ export default function WeatherScreen() {
               <GlassCard style={{ flex: 0.48, padding: 20, borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
                 <Zap size={18} color={COLORS.accentYellow} />
                 <Text className="mt-3 text-[22px] font-black text-white">{Math.round(weather.shortwaveRadiation)}<Text className="text-[10px]">W</Text></Text>
-                <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">Solar Intensity</Text>
-                <Text className="mt-2 text-[9px] font-bold text-accentYellow uppercase">{weather.shortwaveRadiation > 600 ? "Strong • Fast Tan" : "Low • Slow Tan"}</Text>
+                <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.solarIntensity}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-accentYellow uppercase">{weather.shortwaveRadiation > 600 ? `${t.strong} • ${t.fastTan}` : (t.language === 'it' ? "Basso • Lenta" : "Low • Slow Tan")}</Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((weather.shortwaveRadiation / 1000) * 100, 100)}%`, backgroundColor: COLORS.accentYellow }} />
                 </View>
@@ -421,8 +446,8 @@ export default function WeatherScreen() {
               <GlassCard style={{ flex: 0.48, padding: 20, borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
                 <Layers size={18} color="#A78BFA" />
                 <Text className="mt-3 text-[22px] font-black text-white">{Math.round((weather.diffuseRadiation / (weather.shortwaveRadiation || 1)) * 100)}%</Text>
-                <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">Reflection</Text>
-                <Text className="mt-2 text-[9px] font-bold text-[#A78BFA] uppercase">UV Bouncing</Text>
+                <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.reflection}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-[#A78BFA] uppercase">{t.uvBouncing}</Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((weather.diffuseRadiation / (weather.shortwaveRadiation || 1)) * 100, 100)}%`, backgroundColor: "#A78BFA" }} />
                 </View>
@@ -436,8 +461,8 @@ export default function WeatherScreen() {
                   {dailyVitD < 1000 ? Math.round(dailyVitD) : `${(dailyVitD / 1000).toFixed(1)}k`}
                   <Text className="text-[10px]">{dailyVitD < 1000 ? "IU" : "IU"}</Text>
                 </Text>
-                <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">Vitamin D</Text>
-                <Text className="mt-2 text-[9px] font-bold text-[#F472B6] uppercase">{dailyVitD > 5000 ? "Active Load" : "Daily Intake"}</Text>
+                <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.vitaminD}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-[#F472B6] uppercase">{dailyVitD > 5000 ? t.activeLoad : (t.language === 'it' ? "Assunzione Giornaliera" : "Daily Intake")}</Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((dailyVitD / 15000) * 100, 100)}%`, backgroundColor: "#F472B6" }} />
                 </View>
@@ -445,8 +470,8 @@ export default function WeatherScreen() {
               <GlassCard style={{ flex: 0.48, padding: 20, borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
                 <Droplet size={18} color="#60A5FA" />
                 <Text className="mt-3 text-[22px] font-black text-white">{dailyFluids.toFixed(2)}L</Text>
-                <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">Fluids Lost</Text>
-                <Text className="mt-2 text-[9px] font-bold text-[#60A5FA] uppercase">{dailyFluids > 1 ? "Rehydrate!" : "Safe Levels"}</Text>
+                <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.fluidsLost}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-[#60A5FA] uppercase">{dailyFluids > 1 ? (t.language === 'it' ? "Reidratati!" : "Rehydrate!") : t.safeLevels}</Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((dailyFluids / 2.0) * 100, 100)}%`, backgroundColor: "#60A5FA" }} />
                 </View>
@@ -458,9 +483,9 @@ export default function WeatherScreen() {
                 <TrendingUp size={18} color="#34D399" />
                 <View className="flex-row items-baseline justify-between">
                   <Text className="mt-3 text-[22px] font-black text-white">{Math.round(dailyProgress)}%</Text>
-                  <Text className="text-[9px] font-black text-white uppercase tracking-[1px]">Daily Tanning Goal</Text>
+                  <Text className="text-[9px] font-black text-white uppercase tracking-[1px]">{t.dailyTanningGoal}</Text>
                 </View>
-                <Text className="mt-2 text-[9px] font-bold text-[#34D399] uppercase">{dailyProgress >= 100 ? "Goal Reached!" : "Session Pending"}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-[#34D399] uppercase">{dailyProgress >= 100 ? t.goalReached : (t.language === 'it' ? "Sessione Pendente" : "Session Pending")}</Text>
                 <View className="mt-3 h-[4px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${dailyProgress}%`, backgroundColor: "#34D399" }} />
                 </View>
@@ -478,34 +503,50 @@ export default function WeatherScreen() {
                     <Text className="text-[10px] font-black text-accentYellow uppercase">Best: {strategyStart}</Text>
                   </View>
                </View>
-               <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center">
-                    {getWeatherIcon(tomorrowForecast?.weatherCode ?? 0, 32)}
-                    <View className="ml-4">
-                      <Text className="text-3xl font-black text-white">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°</Text>
-                      <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px]">Peak UV {(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text>
-                    </View>
-                  </View>
-                  <View className="flex-1 ml-8 pl-6 border-l border-white/10">
-                    {tomorrowForecast?.rainExpected ? (
-                      <View>
-                        <View className="flex-row items-center mb-2">
-                          <AlertTriangle size={12} color="#F97316" />
-                          <Text className="ml-2 text-[10px] font-black uppercase tracking-[1px] text-[#F97316]">Rain Alert</Text>
-                        </View>
-                        <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
-                          {tomorrowForecast.hasDryFallback
-                            ? <>Rain expected at UV peak (<Text className="text-white font-black">{peakRainProbability}%</Text>). Suggested window: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text> (<Text className="text-white font-black">{strategyRainProbability}%</Text> rain, not optimal).</>
-                            : <>Rain expected at UV peak (<Text className="text-white font-black">{peakRainProbability}%</Text>). No dry optimal window tomorrow; reference slot: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>.</>}
-                        </Text>
+
+               {!hasPremium ? (
+                 <TouchableOpacity 
+                   onPress={() => setPremiumVisible(true)}
+                   className="items-center py-6"
+                 >
+                   <View className="h-12 w-12 bg-white/5 rounded-full items-center justify-center mb-4">
+                     <Lock size={20} color={COLORS.accentYellow} />
+                   </View>
+                   <Text className="text-white font-black text-base mb-1">{t.language === 'it' ? "Sblocca la Strategia" : "Unlock Strategy"}</Text>
+                   <Text className="text-white/50 text-xs font-bold text-center px-4">
+                     {t.language === 'it' ? "Scopri la finestra ottimale per abbronzarti domani senza bruciarti." : "Discover the optimal window to tan tomorrow without burning."}
+                   </Text>
+                 </TouchableOpacity>
+               ) : (
+                 <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      {getWeatherIcon(tomorrowForecast?.weatherCode ?? 0, 32)}
+                      <View className="ml-4">
+                        <Text className="text-3xl font-black text-white">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°</Text>
+                        <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px]">Peak UV {(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text>
                       </View>
-                    ) : (
-                      <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
-                        Optimal window: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>. Rain probability: <Text className="text-white font-black">{strategyRainProbability}%</Text>. Use SPF 30+.
-                      </Text>
-                    )}
-                  </View>
-               </View>
+                    </View>
+                    <View className="flex-1 ml-8 pl-6 border-l border-white/10">
+                      {tomorrowForecast?.rainExpected ? (
+                        <View>
+                          <View className="flex-row items-center mb-2">
+                            <AlertTriangle size={12} color="#F97316" />
+                            <Text className="ml-2 text-[10px] font-black uppercase tracking-[1px] text-[#F97316]">Rain Alert</Text>
+                          </View>
+                          <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
+                            {tomorrowForecast.hasDryFallback
+                              ? <>Rain expected at UV peak (<Text className="text-white font-black">{peakRainProbability}%</Text>). Suggested window: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text> (<Text className="text-white font-black">{strategyRainProbability}%</Text> rain, not optimal).</>
+                              : <>Rain expected at UV peak (<Text className="text-white font-black">{peakRainProbability}%</Text>). No dry optimal window tomorrow; reference slot: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>.</>}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
+                          Optimal window: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>. Rain probability: <Text className="text-white font-black">{strategyRainProbability}%</Text>. Use SPF 30+.
+                        </Text>
+                      )}
+                    </View>
+                 </View>
+               )}
             </GlassCard>
           </View>
         )}
@@ -569,6 +610,11 @@ export default function WeatherScreen() {
           </View>
         )}
       </ScrollView>
+      <SettingsModal 
+        visible={settingsVisible} 
+        onClose={() => setSettingsVisible(false)} 
+      />
+      <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
     </GradientBackground>
   );
 }

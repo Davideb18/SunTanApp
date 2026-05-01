@@ -7,6 +7,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { WebView } from 'react-native-webview';
 
 import { COLORS, formatDuration, FITZPATRICK_TYPES } from "@/constants/theme";
+import { useTranslation } from "@/constants/i18n";
 
 interface SessionRecapProps {
   session: {
@@ -47,6 +48,7 @@ const getColorDistance = (color1: string, color2: string) => {
 };
 
 export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true }: SessionRecapProps) {
+  const t = useTranslation();
   const [isScanning, setIsScanning] = useState(false);
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -124,7 +126,7 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
         setIsScanning(false);
         setImageBase64(null);
         setLocalUri(null);
-        Alert.alert("Scanner Timeout", "Lighting conditions were too difficult. Please select tone manually.");
+        Alert.alert(t.scannerTimeout, t.scannerError);
       }, 10000);
 
     } catch (error) {
@@ -138,16 +140,16 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert("Permission denied", "Camera access needed.");
+      Alert.alert(t.permissionDenied, t.cameraNeeded);
       return;
     }
 
     Alert.alert(
-      "Session Photo",
-      "Analyze your progress",
+      t.addPhoto,
+      t.analyzeProgress,
       [
         {
-          text: "Camera",
+          text: t.language === 'it' ? "Fotocamera" : "Camera",
           onPress: async () => {
             const result = await ImagePicker.launchCameraAsync({
               allowsEditing: true,
@@ -160,7 +162,7 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
           }
         },
         {
-          text: "Gallery",
+          text: t.gallery,
           onPress: async () => {
             const result = await ImagePicker.launchImageLibraryAsync({
               allowsEditing: true,
@@ -172,7 +174,7 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
             }
           }
         },
-        { text: "Cancel", style: "cancel" }
+        { text: t.discard, style: "cancel" }
       ]
     );
   };
@@ -184,10 +186,10 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
   };
 
   const stats = [
-    { label: "Duration", value: formatDuration(session.totalSeconds), icon: Clock },
-    { label: "UV Peak", value: session.uvIndex.toFixed(1), icon: Sun },
-    { label: "Vitamin D", value: `${session.vitD} IU`, icon: Zap },
-    { label: "Hydration", value: `${session.sweatMl || 0} ML`, icon: Droplet },
+    { label: t.durationLabel, value: formatDuration(session.totalSeconds), icon: Clock },
+    { label: t.uvPeak, value: session.uvIndex.toFixed(1), icon: Sun },
+    { label: t.vitaminD, value: `${session.vitD} IU`, icon: Zap },
+    { label: t.hydration, value: `${session.sweatMl || 0} ML`, icon: Droplet },
   ];
 
   const translateY = scanAnim.interpolate({
@@ -248,7 +250,7 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
           <View className="w-full flex-row items-center justify-between px-1">
             <View className="h-10 w-10" />
             <View className="bg-red-500/30 px-4 py-1.5 rounded-full border border-red-500/50">
-              <Text className="text-[10px] font-black text-white uppercase tracking-[4px] text-center">Mission Accomplished</Text>
+              <Text className="text-[10px] font-black text-white uppercase tracking-[4px] text-center">{t.missionAccomplished}</Text>
             </View>
             {onClose ? (
               <TouchableOpacity className="h-10 w-10 items-center justify-center rounded-xl bg-white/10" onPress={onClose}>
@@ -261,8 +263,8 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
 
           <Text className="text-[10px] font-bold text-white/40 uppercase tracking-[2px] mb-1 mt-4">
             {session.date 
-              ? new Date(session.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
-              : new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+              ? new Date(session.date).toLocaleDateString(t.language === 'it' ? 'it-IT' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })
+              : new Date().toLocaleDateString(t.language === 'it' ? 'it-IT' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })
             }
           </Text>
           <Text 
@@ -321,7 +323,7 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
             {session.skinColorHex && !isScanning && (
               <View className="absolute -bottom-4 self-center flex-row items-center bg-black/90 px-5 py-2.5 rounded-full border border-white/20 shadow-2xl z-50">
                  <View className="h-4 w-4 rounded-full mr-3 border border-white/40" style={{ backgroundColor: session.skinColorHex }} />
-                 <Text className="text-[11px] font-black text-white uppercase tracking-[1.5px]">Detected Tone</Text>
+                 <Text className="text-[11px] font-black text-white uppercase tracking-[1.5px]">{t.detectedTone}</Text>
                  <ShieldCheck size={14} color="#4ADE80" style={{ marginLeft: 8 }} />
               </View>
             )}
@@ -344,7 +346,7 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
               <View className="h-16 w-16 rounded-full bg-white/10 items-center justify-center mb-3">
                 <Camera size={32} color="white" opacity={0.6} />
               </View>
-              <Text className="text-xs font-black text-white/40 uppercase tracking-[2px]">Capture Progress Glow</Text>
+              <Text className="text-xs font-black text-white/40 uppercase tracking-[2px]">{t.captureProgress}</Text>
             </TouchableOpacity>
           )
         )}
@@ -354,8 +356,8 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
         <View className="w-full mt-10 bg-white/5 rounded-[40px] p-8 border border-white/10">
           <View className="flex-row items-center justify-between mb-6">
             <View>
-              <Text className="text-[14px] font-black text-white uppercase tracking-[3px]">Manual Refinement</Text>
-              <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px] mt-1">Adjust if detection was off</Text>
+              <Text className="text-[14px] font-black text-white uppercase tracking-[3px]">{t.manualRefinement}</Text>
+              <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px] mt-1">{t.adjustDetection}</Text>
             </View>
             <ShieldCheck size={20} color="rgba(255,255,255,0.2)" />
           </View>

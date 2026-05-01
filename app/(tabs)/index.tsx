@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, Modal, Pressable } from "reac
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { 
   Play, Pause, X, ChevronRight, ShieldCheck, 
-  Check, Sun
+  Check, Sun, Settings, Droplet
 } from "lucide-react-native";
 
 import { GradientBackground } from "@/components/GradientBackground";
@@ -17,6 +17,9 @@ import { HeaderButtons } from "../../components/HeaderButtons";
 import { PremiumModal } from "../../components/PremiumModal";
 import { useAppStore, EngineMode } from "@/store/useAppStore";
 import { COLORS, FITZPATRICK_TYPES, formatDuration, getUvBand } from "@/constants/theme";
+import Svg, { Circle } from "react-native-svg";
+import { useTranslation } from "@/constants/i18n";
+import { SettingsModal } from "@/components/SettingsModal";
 
 type CoachIntensity = "gentle" | "balanced" | "strong";
 
@@ -35,12 +38,22 @@ const COACH_CREAM_OPTIONS = [
 
 const COACH_CREAM_MULTIPLIERS: Record<number, number> = {
   0: 1,
-  15: 0.9,
-  30: 0.8,
-  50: 0.68,
+  15: 1.5,
+  30: 2.2,
+  50: 3.5,
 };
 
-const getCoachSkinMultiplier = (level: number) => 0.78 + Math.max(1, Math.min(level, 6)) * 0.08;
+const getCoachSkinMultiplier = (level: number) => {
+  const multipliers: Record<number, number> = {
+    1: 0.6,   // Very fair: less time
+    2: 1.0,   // Fair: baseline
+    3: 1.5,   // Medium
+    4: 2.2,   // Olive
+    5: 3.2,   // Dark Brown
+    6: 5.0,   // Black: much more time
+  };
+  return multipliers[level] || 1.0;
+};
 
 const getCoachIntensityMultiplier = (intensity: CoachIntensity) => {
   switch (intensity) {
@@ -101,22 +114,81 @@ const deriveCoachPlan = (params: {
   };
 };
 
-const getPhaseSuggestion = (type?: string) => {
+const getPhaseSuggestion = (type: string, t: any) => {
   switch (type) {
-    case "sunscreen": return "Apply generously and evenly. Don't forget ears and neck!";
-    case "front": return "Lie on your back, relax and keep your eyes protected.";
-    case "back": return "Lie on your stomach. Ensure your shoulders are exposed.";
-    case "hydration": return "Time to drink some water! Staying hydrated helps your tan.";
-    default: return "Enjoy the sun responsibly and follow the timer.";
+    case "sunscreen": return t.language === 'it' ? "Applica generosamente e uniformemente. Non dimenticare orecchie e collo!" : "Apply generously and evenly. Don't forget ears and neck!";
+    case "front": return t.language === 'it' ? "Sdraiati sulla schiena, rilassati e proteggi gli occhi." : "Lie on your back, relax and keep your eyes protected.";
+    case "back": return t.language === 'it' ? "Sdraiati sulla pancia. Assicurati che le spalle siano esposte." : "Lie on your stomach. Ensure your shoulders are exposed.";
+    case "hydration": return t.language === 'it' ? "È ora di bere un po' d'acqua! Rimanere idratati aiuta l'abbronzatura." : "Time to drink some water! Staying hydrated helps your tan.";
+    default: return t.language === 'it' ? "Goditi il sole responsabilmente e segui il timer." : "Enjoy the sun responsibly and follow the timer.";
   }
 };
 
+const MiniProgress = ({ progress, isActive, isCompleted, onPress }: { progress: number, isActive: boolean, isCompleted: boolean, onPress: () => void }) => {
+  const size = 52;
+  const strokeWidth = 4;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - Math.max(0, Math.min(1, progress)) * circumference;
+
+  return (
+    <TouchableOpacity onPress={onPress} disabled={!isActive} className="items-center justify-center" style={{ width: size, height: size }}>
+      <Svg width={size} height={size} style={{ position: "absolute" }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={isActive ? "rgba(255,222,0,0.15)" : "rgba(255,255,255,0.05)"}
+          strokeWidth={strokeWidth}
+          fill={isCompleted ? COLORS.accentYellow : "transparent"}
+        />
+        {isActive && (
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={COLORS.accentYellow}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        )}
+      </Svg>
+      <View className="items-center justify-center">
+        {isCompleted ? (
+          <Check size={24} color="black" strokeWidth={3} />
+        ) : isActive ? (
+          <View className="h-4 w-4 bg-accentYellow rounded-full shadow-md" />
+        ) : (
+          <View className="h-2 w-2 bg-white/20 rounded-full" />
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export default function TrackerScreen() {
+  const t = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [settingsVisible, setSettingsVisible] = useState(false);
   const [premiumVisible, setPremiumVisible] = useState(false);
   const [coachCustomizerVisible, setCoachCustomizerVisible] = useState(false);
   const [coachCustomizerTarget, setCoachCustomizerTarget] = useState<"skin" | "uv" | "time" | "cycles" | "cream" | "intensity">("time");
+
+  const getUvLabel = (label: string) => {
+    const key = label.toLowerCase().replace(" ", "") as keyof typeof t;
+    return (t as any)[key] || label;
+  };
+
+  const getPhaseSuggestion = (type: string) => {
+    if (type === "front") return t.suggestionFront;
+    if (type === "back") return t.suggestionBack;
+    return t.suggestionSide;
+  };
   
   const {
     sessionStatus,
@@ -135,15 +207,32 @@ export default function TrackerScreen() {
     cancelSession,
     nextPhase,
     tick,
-    addSessionToHistory
+    addSessionToHistory,
+    dailyGoalMinutes,
+    hasPremium
   } = useAppStore();
 
-  const [localMode, setLocalMode] = useState<EngineMode>("coach");
-  const [personalMinutes, setPersonalMinutes] = useState(20);
-  const [coachMinutes, setCoachMinutes] = useState(20);
+  const [localMode, setLocalMode] = useState<EngineMode>("personal");
+  const [personalMinutes, setPersonalMinutes] = useState(dailyGoalMinutes || 20);
+  const [coachMinutes, setCoachMinutes] = useState(20); // Scientific baseline
   const [coachSkinLevel, setCoachSkinLevel] = useState(fitzpatrickLevel || 1);
   const [coachCreamSpf, setCoachCreamSpf] = useState(currentSpf);
   const [coachIntensity, setCoachIntensity] = useState<CoachIntensity>("balanced");
+
+  // Sync with global store changes (e.g. from Profile)
+  useEffect(() => {
+    setCoachSkinLevel(fitzpatrickLevel || 1);
+  }, [fitzpatrickLevel]);
+
+  useEffect(() => {
+    setCoachCreamSpf(currentSpf);
+  }, [currentSpf]);
+
+  useEffect(() => {
+    if (dailyGoalMinutes) {
+      setPersonalMinutes(dailyGoalMinutes);
+    }
+  }, [dailyGoalMinutes]);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [detectedColor, setDetectedColor] = useState<string | null>(null);
 
@@ -208,7 +297,23 @@ export default function TrackerScreen() {
     totalElapsedSeconds += (currentPhase.duration - sessionTimeRemaining);
   }
 
-  const vitD = Math.floor((totalElapsedSeconds / 60) * (cachedCurrentUv * 50)); 
+  // ── Vitamin D & Sweat Calculation ─────────────────────────────────────────
+  const getVitDEfficiency = (level: number) => {
+    // Multipliers for Vitamin D synthesis efficiency based on Fitzpatrick skin type
+    const factors: Record<number, number> = {
+      1: 1.2,   // Very fair
+      2: 1.0,   // Fair (Baseline)
+      3: 0.7,   // Medium
+      4: 0.4,   // Olive/Brown
+      5: 0.25,  // Dark Brown
+      6: 0.15,  // Black
+    };
+    return factors[level] || 0.7;
+  };
+
+  const skinEfficiency = getVitDEfficiency(coachSkinLevel);
+  // Base rate: 25 IU per minute per UV index unit for Type 2 skin
+  const vitD = Math.floor((totalElapsedSeconds / 60) * (cachedCurrentUv * 25 * skinEfficiency)); 
   const sweatMl = Math.floor((totalElapsedSeconds / 60) * 16.6); 
 
   return (
@@ -225,15 +330,23 @@ export default function TrackerScreen() {
       >
         <View className="mb-10 w-full flex-row items-center justify-between">
           <View className="flex-1 pr-3 items-start">
-            <Text className="text-[32px] font-black tracking-[-1px] text-white">Smart Tracker</Text>
+            <Text className="text-[32px] font-black tracking-[-1px] text-white">{t.smartTracker}</Text>
             <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
-              {isSessionActive ? "Active Session" : "Ready to Glow"}
+              {isSessionActive ? t.activeSession : (t.language === 'it' ? "Pronto a splendere" : "Ready to Glow")}
             </Text>
           </View>
-          <HeaderButtons 
-            onEarnPress={() => router.push('/(tabs)/weather?scrollToAmbassador=true')}
-            onProPress={() => setPremiumVisible(true)}
-          />
+          <View className="flex-row items-center gap-2">
+            <HeaderButtons 
+              onEarnPress={() => router.push(`/(tabs)/weather?scrollToAmbassador=${Date.now()}`)}
+              onProPress={() => setPremiumVisible(true)}
+            />
+            <TouchableOpacity 
+              onPress={() => setSettingsVisible(true)}
+              className="h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/10"
+            >
+              <Settings size={20} color="white" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
@@ -244,16 +357,19 @@ export default function TrackerScreen() {
           </View>
         )}
 
-        <View className="items-center justify-center w-full my-3">
-          <TimerRing 
-            progress={!isIdle && !isDone ? (sessionTimeRemaining / (currentPhase?.duration || 1)) : 1}
-            subtitle={isUvStopped ? "NO UV" : !isIdle && !isDone ? currentPhase?.label : isDone ? "FINISH" : "READY"}
-            timeLabel={isUvStopped ? "STOP" : !isIdle && !isDone ? formatDuration(sessionTimeRemaining) : formatDuration(idleTimeSeconds)}
-            totalTimeLabel={!isIdle && !isDone ? formatDuration(totalElapsedSeconds) : undefined}
-            isActive={isSessionActive}
-            size={220}
-          />
-        </View>
+        {/* We only show the inline TimerRing if we are idle or done. If active, it's inside the modal. */}
+        {(isIdle || isDone) && (
+          <View className="items-center justify-center w-full my-3">
+            <TimerRing 
+              progress={!isIdle && !isDone ? (sessionTimeRemaining / (currentPhase?.duration || 1)) : 1}
+              subtitle={isUvStopped ? t.noUv : !isIdle && !isDone ? currentPhase?.label : isDone ? t.finish : t.ready}
+              timeLabel={isUvStopped ? t.stop : !isIdle && !isDone ? formatDuration(sessionTimeRemaining) : formatDuration(idleTimeSeconds)}
+              totalTimeLabel={!isIdle && !isDone ? formatDuration(totalElapsedSeconds) : undefined}
+              isActive={isSessionActive}
+              size={220}
+            />
+          </View>
+        )}
 
         {isDone ? (
           <View className="w-full">
@@ -277,7 +393,17 @@ export default function TrackerScreen() {
           <View className="w-full items-center">
             {isIdle ? (
               <View className="w-full">
-                <ModeSelector mode={localMode} onChange={(m) => setLocalMode(m)} />
+                <ModeSelector 
+                  mode={localMode} 
+                  coachLocked={!hasPremium}
+                  onChange={(m) => {
+                    if (m === "coach" && !hasPremium) {
+                      setPremiumVisible(true);
+                    } else {
+                      setLocalMode(m);
+                    }
+                  }} 
+                />
                 <View className="mt-10 mb-5">
                   {localMode === "coach" ? (
                     <GlassCard style={{ padding: 14, borderWidth: 1, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 20, elevation: 15 }}>
@@ -312,7 +438,7 @@ export default function TrackerScreen() {
                           <View className="mt-3 flex-1 items-center justify-center">
                             <View className="h-14 w-14 rounded-full border border-white/20" style={{ backgroundColor: skinType.hex }} />
                           </View>
-                          <Text className="mt-3 text-center text-[11px] font-bold text-white/55">Tap to customize</Text>
+                          <Text className="mt-3 text-center text-[11px] font-bold text-white/55">{t.tapToCustomize}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -324,30 +450,32 @@ export default function TrackerScreen() {
                           className="flex-1 rounded-[20px] bg-white/5 border border-white/10 p-3.5"
                         >
                           <View className="flex-row items-center justify-between">
-                            <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/35">Current UV</Text>
+                            <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/35">{t.currentUv}</Text>
                           </View>
                           <View className="mt-3 flex-1 items-center justify-center">
                             <View className="h-14 w-14 rounded-full items-center justify-center border border-white/20 bg-accentYellow shadow-lg">
                               <Text className="text-[18px] font-black text-black">{currentUvNumber}</Text>
                             </View>
                           </View>
-                          <Text className="mt-3 text-center text-[9px] font-black uppercase tracking-[1.5px] text-accentYellow">{uvBand.label}</Text>
-                          <Text className="mt-3 text-center text-[11px] font-bold text-white/55">Tap to customize</Text>
+                          <Text className="mt-3 text-center text-[9px] font-black uppercase tracking-[1.5px] text-accentYellow">
+                            {getUvLabel(uvBand.label)}
+                          </Text>
+                          <Text className="mt-3 text-center text-[11px] font-bold text-white/55">{t.tapToCustomize}</Text>
                         </TouchableOpacity>
                       </View>
 
                       <View className="mt-2.5 flex-row gap-2.5">
                         <TouchableOpacity
                           onPress={() => {
-                            setCoachCustomizerTarget("time");
+                            setCoachCustomizerTarget("cycles");
                             setCoachCustomizerVisible(true);
                           }}
                           activeOpacity={0.85}
                           className="flex-1 rounded-[20px] bg-white/5 border border-white/10 p-3.5"
                         >
-                          <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/35">Rotations</Text>
+                          <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/35">{t.cycles}</Text>
                           <Text className="mt-1.5 text-[22px] font-black text-white">{coachCycles}</Text>
-                          <Text className="mt-1 text-[11px] font-bold text-white/55">~{coachRotationMinutes} min each</Text>
+                          <Text className="mt-1 text-[11px] font-bold text-white/55">~{coachRotationMinutes} {t.minEach}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -358,22 +486,22 @@ export default function TrackerScreen() {
                           activeOpacity={0.85}
                           className="flex-1 rounded-[20px] bg-white/5 border border-white/10 p-3.5"
                         >
-                          <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/35">Intensity</Text>
+                          <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/35">{t.intensityLabel}</Text>
                           <Text className="mt-1.5 text-[14px] font-black uppercase text-white">
-                            {COACH_INTENSITY_OPTIONS.find((option) => option.id === coachIntensity)?.label ?? "Balanced"}
+                            {t[coachIntensity as keyof typeof t] || "Balanced"}
                           </Text>
                           <Text className="mt-1 text-[11px] font-bold text-white/55">
-                            {COACH_INTENSITY_OPTIONS.find((option) => option.id === coachIntensity)?.hint ?? "Recommended"}
+                            {coachIntensity === 'balanced' ? t.recommended : coachIntensity === 'gentle' ? t.longerSession : t.shorterSession}
                           </Text>
                         </TouchableOpacity>
                       </View>
 
                       <View className="mt-3 rounded-[18px] border border-white/10 bg-white/5 px-3.5 py-2.5">
-                        <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/35">Actual plan</Text>
+                        <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/35">{t.actualPlan}</Text>
                         <Text className="mt-1 text-[12px] font-bold text-white/75" numberOfLines={2}>
                           {isUvStopped
-                            ? "STOP • UV is 0, wait for daylight before starting"
-                            : `${effectiveCoachMinutes} min • ${coachCycles} rotations • ${coachCreamSpf === 0 ? "No cream" : `SPF ${coachCreamSpf}`} • Type ${coachSkinLevel} • ${COACH_INTENSITY_OPTIONS.find((option) => option.id === coachIntensity)?.label ?? "Balanced"}`}
+                            ? t.stopNoUvDesc
+                            : `${effectiveCoachMinutes} min • ${coachCycles} ${t.cycles.toLowerCase()} • ${coachCreamSpf === 0 ? t.noCream : `SPF ${coachCreamSpf}`} • ${t.type} ${coachSkinLevel} • ${t[coachIntensity as keyof typeof t] || "Balanced"}`}
                         </Text>
                       </View>
                     </GlassCard>
@@ -388,90 +516,10 @@ export default function TrackerScreen() {
                   activeOpacity={0.8}
                 >
                   {isUvStopped ? <ShieldCheck size={20} color="white" /> : <Play size={20} color="black" />}
-                  <Text className={`ml-3 text-lg font-black ${isUvStopped ? "text-white" : "text-black"}`}>{isUvStopped ? "STOP" : "START SESSION"}</Text>
+                  <Text className={`ml-3 text-lg font-black ${isUvStopped ? "text-white" : "text-black"}`}>{isUvStopped ? t.stop : t.startSession}</Text>
                 </TouchableOpacity>
               </View>
-            ) : (
-              <View className="w-full">
-                {/* Phase List */}
-                <View className="mb-8 w-full">
-                  {sessionPhases.map((phase, idx) => {
-                    const isActive = idx === currentPhaseIndex;
-                    const isCompleted = idx < currentPhaseIndex;
-                    
-                    return (
-                      <View key={idx} className="mb-4">
-                        <GlassCard 
-                          style={{ 
-                            padding: 20, 
-                            borderRadius: 32, 
-                            borderWidth: 1.5, 
-                            borderColor: isActive ? COLORS.accentYellow : "#FFFFFF",
-                            backgroundColor: "rgba(0,0,0,0.7)",
-                            opacity: isCompleted ? 0.5 : 1,
-                            shadowColor: "#000",
-                            shadowOpacity: 0.5,
-                            shadowRadius: 15,
-                            elevation: 10
-                          }}
-                        >
-                          <View className="flex-row items-center justify-between">
-                            <View className="flex-row items-center flex-1">
-                              <View className={`h-9 w-9 rounded-full items-center justify-center ${isActive ? 'bg-accentYellow' : 'bg-white/10'}`}>
-                                {isCompleted ? (
-                                  <Check size={16} color="white" />
-                                ) : (
-                                  <Text className={`text-[14px] font-black ${isActive ? 'text-black' : 'text-white/40'}`}>{idx + 1}</Text>
-                                )}
-                              </View>
-                              <View className="ml-4 flex-1">
-                                <Text className={`text-base font-black ${isActive ? 'text-white' : 'text-white/40'}`}>{phase.label}</Text>
-                                {isActive && (
-                                  <Text className="text-[11px] font-bold text-accentYellow uppercase tracking-[1px] mt-1">
-                                    {getPhaseSuggestion(phase.type)}
-                                  </Text>
-                                )}
-                              </View>
-                            </View>
-                            <View className={`px-3 py-1.5 rounded-xl border ${isActive ? 'bg-accentYellow/10 border-accentYellow/30' : 'bg-white/5 border-white/10'}`}>
-                               <Text className={`text-[11px] font-black ${isActive ? 'text-accentYellow' : 'text-white/40'}`}>
-                                 {formatDuration(phase.duration)}
-                               </Text>
-                            </View>
-                          </View>
-                        </GlassCard>
-                      </View>
-                    );
-                  })}
-                </View>
-
-                <View className="flex-row justify-between gap-4">
-                  <TouchableOpacity 
-                    className="flex-1 h-16 items-center justify-center rounded-[24px] bg-white/10 border border-white/10" 
-                    onPress={cancelSession}
-                  >
-                    <X size={24} color="white" opacity={0.5} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    className="flex-[2] h-16 items-center justify-center rounded-[24px] bg-white shadow-2xl"
-                    onPress={isSessionActive ? pauseSession : resumeSession}
-                  >
-                    <View className="flex-row items-center">
-                      {isSessionActive ? <Pause size={22} color="black" /> : <Play size={22} color="black" />}
-                      <Text className="ml-3 text-lg font-black text-black">
-                        {isSessionActive ? "PAUSE" : "RESUME"}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    className="flex-1 h-16 items-center justify-center rounded-[24px] bg-white/10 border border-white/10" 
-                    onPress={nextPhase}
-                  >
-                    <ChevronRight size={24} color="white" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
+            ) : null}
           </View>
         )}
 
@@ -485,7 +533,7 @@ export default function TrackerScreen() {
                 setDetectedColor(null);
               }}
             >
-              <Text className="text-xs font-black text-white/50 tracking-[2px]">DISCARD</Text>
+              <Text className="text-xs font-black text-white/50 tracking-[2px]">{t.discard}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               className="flex-[2] h-16 items-center justify-center rounded-[24px] bg-accentOrange shadow-2xl"
@@ -493,12 +541,127 @@ export default function TrackerScreen() {
             >
               <View className="flex-row items-center">
                 <Check size={22} color="white" />
-                <Text className="ml-3 text-lg font-black text-white">SAVE SESSION</Text>
+                <Text className="ml-3 text-lg font-black text-white">{t.saveSession}</Text>
               </View>
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
+
+      {/* Active Session Fullscreen Modal */}
+      <Modal visible={!isIdle && !isDone} animationType="slide" transparent>
+        <View className="flex-1 bg-black">
+          <GradientBackground>
+            <View className="flex-1 px-6" style={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }}>
+              <View className="flex-row justify-center items-center mb-6">
+                <Text className="text-xl font-black text-white uppercase tracking-[1px]">{t.activeSession}</Text>
+              </View>
+
+              {/* Central Timer Ring */}
+              <View className="items-center justify-center w-full mb-8 mt-2">
+                <TimerRing 
+                  progress={sessionTimeRemaining / (currentPhase?.duration || 1)}
+                  subtitle={currentPhase?.label || ""}
+                  timeLabel={formatDuration(sessionTimeRemaining)}
+                  totalTimeLabel={formatDuration(totalElapsedSeconds)}
+                  isActive={isSessionActive}
+                  size={240}
+                />
+                
+                {/* Live Stats Row */}
+                <View className="flex-row items-center gap-4 mt-6">
+                  <View className="flex-row items-center bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl">
+                    <Sun size={14} color={COLORS.accentYellow} />
+                    <Text className="ml-2 text-[13px] font-black text-white">{vitD} <Text className="text-[10px] text-white/50">IU</Text></Text>
+                  </View>
+                  <View className="flex-row items-center bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl">
+                    <Droplet size={14} color="#60A5FA" />
+                    <Text className="ml-2 text-[13px] font-black text-white">{(sweatMl / 1000).toFixed(2)} <Text className="text-[10px] text-white/50">L</Text></Text>
+                  </View>
+                </View>
+              </View>
+
+              <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                {sessionPhases.map((phase, idx) => {
+                  const isActive = idx === currentPhaseIndex;
+                  const isCompleted = idx < currentPhaseIndex;
+                  const phaseProgress = isActive ? 1 - (sessionTimeRemaining / phase.duration) : (isCompleted ? 1 : 0);
+                  
+                  return (
+                    <View key={idx} className="mb-4">
+                      <GlassCard 
+                        style={{ 
+                          padding: 16, 
+                          borderRadius: 28, 
+                          borderWidth: isActive ? 1.5 : 1, 
+                          borderColor: isActive ? COLORS.accentYellow : "rgba(255,255,255,0.1)",
+                          backgroundColor: isActive ? "rgba(255,222,0,0.08)" : "rgba(0,0,0,0.5)",
+                          opacity: isCompleted ? 0.3 : 1,
+                          shadowColor: isActive ? COLORS.accentYellow : "#000",
+                          shadowOpacity: isActive ? 0.2 : 0,
+                          shadowRadius: 15,
+                          elevation: isActive ? 10 : 0
+                        }}
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <View className="flex-row items-center flex-1">
+                            <MiniProgress 
+                              progress={phaseProgress}
+                              isActive={isActive}
+                              isCompleted={isCompleted}
+                              onPress={nextPhase}
+                            />
+                            <View className="ml-4 flex-1">
+                              <Text className={`text-[17px] font-black ${isActive ? 'text-white' : 'text-white/60'}`}>{phase.label}</Text>
+                              {isActive && (
+                                <Text className="text-[10px] font-bold text-accentYellow uppercase tracking-[1px] mt-1.5 leading-[14px]">
+                                  {getPhaseSuggestion(phase.type)}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                          <View className={`px-3 py-1.5 rounded-[12px] border ${isActive ? 'bg-accentYellow/10 border-accentYellow/30' : 'bg-white/5 border-white/10'}`}>
+                             <Text className={`text-[11px] font-black tracking-[1px] ${isActive ? 'text-accentYellow' : 'text-white/40'}`}>
+                               {formatDuration(phase.duration)}
+                             </Text>
+                          </View>
+                        </View>
+                      </GlassCard>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              <View className="flex-row justify-between gap-4 mt-4">
+                <TouchableOpacity 
+                  className="h-16 w-16 items-center justify-center rounded-full bg-white/10 border border-white/20" 
+                  onPress={cancelSession}
+                >
+                  <X size={24} color="white" opacity={0.6} />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  className="h-16 w-16 items-center justify-center rounded-full bg-white/10 border border-white/20" 
+                  onPress={isSessionActive ? pauseSession : resumeSession}
+                >
+                  {isSessionActive ? <Pause size={24} color="white" /> : <Play size={24} color="white" />}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  className="flex-1 h-16 flex-row items-center justify-center rounded-[32px] bg-accentYellow shadow-lg shadow-accentYellow/30"
+                  onPress={nextPhase}
+                >
+                  {currentPhaseIndex === sessionPhases.length - 1 ? (
+                    <Text className="text-[15px] font-black text-black tracking-[1px]">{t.finish}</Text>
+                  ) : (
+                    <Check size={30} color="black" strokeWidth={3.5} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </GradientBackground>
+        </View>
+      </Modal>
 
       <Modal visible={coachCustomizerVisible} transparent animationType="fade" onRequestClose={() => setCoachCustomizerVisible(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }} onPress={() => setCoachCustomizerVisible(false)}>
@@ -525,7 +688,7 @@ export default function TrackerScreen() {
                     key={delta}
                     onPress={() => {
                       if (isUvStopped) return;
-                      setCoachMinutes((value) => Math.max(5, Math.min(180, value + delta)));
+                      setCoachMinutes((value: number) => Math.max(5, Math.min(180, value + delta)));
                     }}
                     disabled={isUvStopped}
                     className={`min-w-[72px] items-center justify-center rounded-2xl px-3 py-3 mr-3 ${isUvStopped ? "bg-white/5" : "bg-white/10"}`}
@@ -535,7 +698,9 @@ export default function TrackerScreen() {
                 ))}
               </ScrollView>
               <Text className="mt-3 text-center text-[11px] font-medium text-white/50">
-                {isUvStopped ? "UV is 0, so the plan is stopped until the sun is available." : `Actual timer: ${effectiveCoachMinutes} min • ${coachCycles} rotations`}
+                {isUvStopped 
+                  ? (t.language === 'it' ? "UV a 0, il piano è fermo finché non sorge il sole." : "UV is 0, so the plan is stopped until the sun is available.") 
+                  : (t.language === 'it' ? `Timer attuale: ${effectiveCoachMinutes} min • ${coachCycles} rotazioni` : `Actual timer: ${effectiveCoachMinutes} min • ${coachCycles} rotations`)}
               </Text>
             </View>
 
@@ -553,7 +718,7 @@ export default function TrackerScreen() {
                       className={`min-w-[72px] flex-1 items-center rounded-2xl border px-3 py-3 ${active ? "border-accentYellow bg-accentYellow/10" : "border-white/10 bg-white/5"}`}
                     >
                       <View className="h-9 w-9 rounded-full border border-white/20" style={{ backgroundColor: type.hex }} />
-                      <Text className={`mt-2 text-[11px] font-black uppercase tracking-[1px] ${active ? "text-accentYellow" : "text-white/70"}`}>Type {type.level}</Text>
+                      <Text className={`mt-2 text-[11px] font-black uppercase tracking-[1px] ${active ? "text-accentYellow" : "text-white/70"}`}>{t.type} {type.level}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -561,7 +726,7 @@ export default function TrackerScreen() {
             </View>
 
             <View className="mb-5 rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">Cream Type</Text>
+              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">{t.creamType}</Text>
               <View className="flex-row flex-wrap gap-2">
                 {COACH_CREAM_OPTIONS.map((option) => {
                   const active = coachCreamSpf === option.value;
@@ -581,7 +746,7 @@ export default function TrackerScreen() {
             </View>
 
             <View className="mb-5 rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">Intensity</Text>
+              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">{t.intensityLabel}</Text>
               <View className="flex-row flex-wrap gap-2">
                 {COACH_INTENSITY_OPTIONS.map((option) => {
                   const active = coachIntensity === option.id;
@@ -602,19 +767,19 @@ export default function TrackerScreen() {
             </View>
 
             <View className="mb-6 rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">Rotations</Text>
+              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">{t.rotations}</Text>
               <View className="flex-row items-center justify-between">
                 <View>
                   <Text className="text-4xl font-black text-white">{coachCycles}</Text>
-                  <Text className="text-[10px] font-bold uppercase tracking-[2px] text-white/40">auto-calculated</Text>
+                  <Text className="text-[10px] font-bold uppercase tracking-[2px] text-white/40">{t.autoCalculated}</Text>
                 </View>
                 <View className="items-end">
                   <Text className="text-[11px] font-black uppercase tracking-[2px] text-accentYellow">{coachRotationMinutes} min</Text>
-                  <Text className="text-[10px] font-bold text-white/40">per rotation</Text>
+                  <Text className="text-[10px] font-bold text-white/40">{t.perRotation}</Text>
                 </View>
               </View>
               <Text className="mt-3 text-[11px] font-medium text-white/50">
-                Changing minutes, skin, cream or intensity updates rotations automatically.
+                {t.language === 'it' ? "Cambiare i minuti, la pelle, la crema o l'intensità aggiorna le rotazioni automaticamente." : "Changing minutes, skin, cream or intensity updates rotations automatically."}
               </Text>
             </View>
 
@@ -628,13 +793,13 @@ export default function TrackerScreen() {
                 }}
                 className="flex-1 items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-4"
               >
-                <Text className="text-[11px] font-black uppercase tracking-[2px] text-white/70">Reset</Text>
+                <Text className="text-[11px] font-black uppercase tracking-[2px] text-white/70">{t.reset}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setCoachCustomizerVisible(false)}
                 className="flex-[1.4] items-center rounded-2xl bg-white px-4 py-4"
               >
-                <Text className="text-[11px] font-black uppercase tracking-[2px] text-black">Done</Text>
+                <Text className="text-[11px] font-black uppercase tracking-[2px] text-black">{t.done}</Text>
               </TouchableOpacity>
             </View>
 
@@ -642,6 +807,10 @@ export default function TrackerScreen() {
           </View>
         </Pressable>
       </Modal>
+      <SettingsModal 
+        visible={settingsVisible} 
+        onClose={() => setSettingsVisible(false)} 
+      />
     </GradientBackground>
   );
 }

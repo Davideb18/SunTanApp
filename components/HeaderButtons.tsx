@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { COLORS } from "@/constants/theme";
+import { useTranslation } from "@/constants/i18n";
 
 interface HeaderButtonsProps {
   onEarnPress: () => void;
@@ -8,6 +9,8 @@ interface HeaderButtonsProps {
 }
 
 export const HeaderButtons = ({ onEarnPress, onProPress }: HeaderButtonsProps) => {
+  const t = useTranslation();
+  
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <TouchableOpacity 
@@ -28,7 +31,7 @@ export const HeaderButtons = ({ onEarnPress, onProPress }: HeaderButtonsProps) =
           elevation: 4
         }}
       >
-        <Text style={{ fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: -0.3, textAlign: 'center' }}>EARN</Text>
+        <Text style={{ fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: -0.3, textAlign: 'center' }}>{t.earn}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 
@@ -49,7 +52,7 @@ export const HeaderButtons = ({ onEarnPress, onProPress }: HeaderButtonsProps) =
           elevation: 4
         }}
       >
-        <Text style={{ fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: -0.3, textAlign: 'center' }}>PRO</Text>
+        <Text style={{ fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: -0.3, textAlign: 'center' }}>{t.pro}</Text>
       </TouchableOpacity>
     </View>
   );

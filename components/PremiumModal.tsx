@@ -1,9 +1,11 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Modal, ScrollView, TextInput } from "react-native";
-import { X, Check, ShieldCheck, Zap, Sparkles, Star } from "lucide-react-native";
+import { View, Text, TouchableOpacity, Modal, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { X, Check, ShieldCheck } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS } from "@/constants/theme";
-import { GlassCard } from "./GlassCard";
+import { useTranslation } from "@/constants/i18n";
+import { useRevenueCat } from "@/hooks/useRevenueCat";
+import { PACKAGE_TYPE } from "react-native-purchases";
 
 interface PremiumModalProps {
   visible: boolean;
@@ -11,14 +13,45 @@ interface PremiumModalProps {
 }
 
 export function PremiumModal({ visible, onClose }: PremiumModalProps) {
+  const t = useTranslation();
+  const { packages, purchasePackage, restorePurchases } = useRevenueCat();
+  const [loading, setLoading] = React.useState(false);
+  
   const features = [
-    "AI-Powered Smart Coach",
-    "Precise UV Hourly Tracking",
-    "Exclusive Skin Tone Analysis",
-    "Infinite Session History",
-    "No Ads, High-Speed Forecasts",
-    "Custom Safe Window Alerts"
+    t.feat1,
+    t.feat2,
+    t.feat3,
+    t.feat4,
+    t.feat5,
+    t.feat6
   ];
+
+  const handlePurchase = async (pack: any) => {
+    setLoading(true);
+    const success = await purchasePackage(pack);
+    setLoading(false);
+    if (success) {
+      Alert.alert(t.language === 'it' ? "Successo" : "Success", t.language === 'it' ? "Ora sei un utente Pro!" : "You are now a Pro user!");
+      onClose();
+    }
+  };
+
+  const handleRestore = async () => {
+    setLoading(true);
+    const success = await restorePurchases();
+    setLoading(false);
+    if (success) {
+      Alert.alert(t.language === 'it' ? "Ripristinato" : "Restored", t.language === 'it' ? "Abbonamento ripristinato con successo." : "Subscription restored successfully.");
+      onClose();
+    } else {
+      Alert.alert(t.language === 'it' ? "Errore" : "Error", t.language === 'it' ? "Nessun abbonamento trovato." : "No subscription found.");
+    }
+  };
+
+  // Find specific packages
+  const annual = packages.find(p => p.packageType === PACKAGE_TYPE.ANNUAL);
+  const quarterly = packages.find(p => p.packageType === PACKAGE_TYPE.THREE_MONTH);
+  const monthly = packages.find(p => p.packageType === PACKAGE_TYPE.MONTHLY);
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
@@ -27,7 +60,10 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
           colors={['#1a1a1a', '#000']}
           className="flex-1 px-6"
         >
-          <View className="flex-row justify-end pt-14 mb-8">
+          <View className="flex-row justify-between items-center pt-14 mb-8">
+            <TouchableOpacity onPress={handleRestore}>
+               <Text className="text-white/40 text-[10px] font-black uppercase tracking-[1px]">Restore</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={onClose} className="h-10 w-10 bg-white/10 rounded-full items-center justify-center">
               <X size={20} color="white" />
             </TouchableOpacity>
@@ -38,8 +74,8 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
               <View className="h-20 w-20 bg-accentYellow rounded-[24px] items-center justify-center mb-6 shadow-lg shadow-accentYellow/20">
                 <ShieldCheck size={40} color="black" />
               </View>
-              <Text className="text-4xl font-black text-white text-center tracking-[-1px]">Glowy Premium</Text>
-              <Text className="text-accentYellow font-black text-sm uppercase tracking-[3px] mt-2">Unlock Your Best Tan</Text>
+              <Text className="text-4xl font-black text-white text-center tracking-[-1px]">{t.premiumTitle}</Text>
+              <Text className="text-accentYellow font-black text-sm uppercase tracking-[3px] mt-2">{t.premiumSubtitle}</Text>
             </View>
 
             <View className="mb-10">
@@ -53,52 +89,55 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
               ))}
             </View>
 
-            <View className="mb-10">
-              <Text className="text-[10px] font-black text-white/40 uppercase tracking-[2px] mb-3 ml-2">Do you have a partner code?</Text>
-              <View className="flex-row gap-3">
-                <TextInput
-                  placeholder="Enter code (e.g. GLOWY-20)"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  className="flex-1 h-14 bg-white/5 border border-white/10 rounded-2xl px-5 text-white font-black"
-                  autoCapitalize="characters"
-                />
-                <TouchableOpacity className="h-14 px-6 bg-white/10 border border-white/20 rounded-2xl items-center justify-center">
-                  <Text className="text-white font-black text-xs uppercase">APPLY</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
             <View className="gap-y-4 mb-10">
-              <TouchableOpacity className="relative overflow-hidden bg-white p-6 rounded-[32px] items-center">
-                 <View className="absolute top-0 right-0 bg-accentOrange px-4 py-1 rounded-bl-2xl">
-                    <Text className="text-[10px] font-black text-white">POPULAR</Text>
-                 </View>
-                 <Text className="text-black font-black text-xl uppercase">Annual Elite</Text>
-                 <View className="flex-row items-center mt-1">
-                    <Text className="text-black font-black text-lg">€40</Text>
-                    <Text className="ml-2 text-black/30 font-bold text-xs line-through">€100</Text>
-                 </View>
-              </TouchableOpacity>
+              {loading ? (
+                <ActivityIndicator color={COLORS.accentYellow} size="large" />
+              ) : (
+                <>
+                  {/* ANNUAL */}
+                  <TouchableOpacity 
+                    onPress={() => annual && handlePurchase(annual)}
+                    className="relative overflow-hidden bg-white p-6 rounded-[32px] items-center border-2 border-accentYellow"
+                  >
+                    <View className="absolute top-0 right-0 bg-accentYellow px-4 py-1 rounded-bl-2xl">
+                      <Text className="text-[10px] font-black text-black">BEST VALUE</Text>
+                    </View>
+                    <Text className="text-black font-black text-xl uppercase">{t.annualElite || "Annual Elite"}</Text>
+                    <View className="flex-row items-center mt-1">
+                      <Text className="text-black font-black text-lg">{annual?.product.priceString || "€39.99"}</Text>
+                      <Text className="ml-2 text-black/30 font-bold text-xs">/ year</Text>
+                    </View>
+                  </TouchableOpacity>
 
-              <TouchableOpacity className="bg-white/10 p-6 rounded-[32px] items-center border border-white/20">
-                 <Text className="text-white font-black text-xl uppercase">Quarterly Pro</Text>
-                 <View className="flex-row items-center mt-1">
-                    <Text className="text-white font-black text-lg">€20</Text>
-                    <Text className="ml-2 text-white/30 font-bold text-xs line-through">€30</Text>
-                 </View>
-              </TouchableOpacity>
+                  {/* QUARTERLY */}
+                  <TouchableOpacity 
+                    onPress={() => quarterly && handlePurchase(quarterly)}
+                    className="bg-white/10 p-6 rounded-[32px] items-center border border-white/20"
+                  >
+                    <Text className="text-white font-black text-xl uppercase">{t.quarterlyPro || "Quarterly Pro"}</Text>
+                    <View className="flex-row items-center mt-1">
+                      <Text className="text-white font-black text-lg">{quarterly?.product.priceString || "€19.99"}</Text>
+                      <Text className="ml-2 text-white/30 font-bold text-xs">/ 3 months</Text>
+                    </View>
+                  </TouchableOpacity>
 
-              <TouchableOpacity className="bg-white/10 p-6 rounded-[32px] items-center border border-white/20">
-                 <Text className="text-white font-black text-xl uppercase">Weekly Pass</Text>
-                 <View className="flex-row items-center mt-1">
-                    <Text className="text-white font-black text-lg">€7</Text>
-                    <Text className="ml-2 text-white/30 font-bold text-xs line-through">€10</Text>
-                 </View>
-              </TouchableOpacity>
+                  {/* MONTHLY */}
+                  <TouchableOpacity 
+                    onPress={() => monthly && handlePurchase(monthly)}
+                    className="bg-white/10 p-6 rounded-[32px] items-center border border-white/20"
+                  >
+                    <Text className="text-white font-black text-xl uppercase">{t.monthlyPass || "Monthly Pass"}</Text>
+                    <View className="flex-row items-center mt-1">
+                      <Text className="text-white font-black text-lg">{monthly?.product.priceString || "€7.99"}</Text>
+                      <Text className="ml-2 text-white/30 font-bold text-xs">/ month</Text>
+                    </View>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
 
             <Text className="text-center text-[10px] text-white/30 font-bold uppercase tracking-[1px] mb-20 px-8">
-              Payment will be charged to your iTunes Account. Subscription automatically renews unless auto-renew is turned off.
+              {t.premiumDisclaimer}
             </Text>
           </ScrollView>
         </LinearGradient>

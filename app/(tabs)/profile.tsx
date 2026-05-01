@@ -6,7 +6,7 @@ import {
   Settings, History as HistoryIcon, Shield, 
   Trash2, ChevronRight, Sun, Zap,
   Activity, ArrowUpRight, BarChart3, Camera,
-  ShieldCheck, Droplet, Clock, Check, Flame
+  ShieldCheck, Droplet, Clock, Check, Flame, Bell, Lock, X, Image as ImageIcon
 } from "lucide-react-native";
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,17 +19,21 @@ import { PremiumModal } from "../../components/PremiumModal";
 import { useAppStore, SessionHistoryItem } from "@/store/useAppStore";
 import { FITZPATRICK_TYPES, COLORS, formatDuration } from "@/constants/theme";
 import { SettingsModal } from "@/components/SettingsModal";
+import { schedulePhaseEndNotification, scheduleSafetyAlert } from "@/utils/notifications";
+import { useTranslation } from "@/constants/i18n";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const CHART_HEIGHT = 120;
-const CHART_WIDTH = SCREEN_WIDTH - 88;
+const CHART_HEIGHT = 150;
+const CHART_WIDTH = SCREEN_WIDTH - 100;
 
-const SPF_OPTIONS = [0, 15, 30, 50, 70, 100];
+const SPF_OPTIONS = [0, 15, 30, 50];
 
 export default function ProfileScreen() {
+  const t = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
+  const visualJourneyRef = useRef<ScrollView>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [premiumVisible, setPremiumVisible] = useState(false);
   
@@ -44,8 +48,19 @@ export default function ProfileScreen() {
     history,
     updateHistoryItemData,
     dailyGoalMinutes,
-    setDailyGoalMinutes
+    setDailyGoalMinutes,
+    vitDGoalIU,
+    hasPremium
   } = useAppStore();
+
+  const weeklyVitD = useMemo(() => {
+    return history
+      .filter(s => (new Date().getTime() - new Date(s.date).getTime()) <= 7 * 24 * 60 * 60 * 1000)
+      .reduce((acc, s) => acc + (s.vitD || 0), 0);
+  }, [history]);
+
+  const toneStart = history.length > 0 ? history[history.length - 1].skinColorHex || skinHex || '#C68642' : skinHex || '#C68642';
+  const toneEnd = history.length > 0 ? history[0].skinColorHex || toneStart : toneStart;
 
   const [selectedSession, setSelectedSession] = useState<SessionHistoryItem | null>(null);
 
@@ -74,11 +89,10 @@ export default function ProfileScreen() {
     return count;
   }, [history]);
 
-  // ── Timeline Logic (Last 14 Days) ──────────────────────────────────────────
   const timelineDays = useMemo(() => {
     const days = [];
     const now = new Date();
-    // Generate 14 days, with current day being near the end
+    // Generate 14 days, with current day being last (right-most)
     for (let i = 13; i >= 0; i--) {
       const d = new Date();
       d.setDate(now.getDate() - i);
@@ -90,8 +104,20 @@ export default function ProfileScreen() {
         sessions: daySessions
       });
     }
+    
+    // PREMIUM LOCK: Only show last 3 days if not premium
+    if (!hasPremium) {
+      return days.map((day, idx) => {
+         // The last 3 items in the array are the last 3 days
+         if (idx < days.length - 3) {
+            return { ...day, sessions: [] }; // Hide sessions older than 3 days
+         }
+         return day;
+      });
+    }
+    
     return days;
-  }, [history]);
+  }, [history, hasPremium]);
 
   // ── Analytics Logic ──────────────────────────────────────────────────────
   const analytics = useMemo(() => {
@@ -103,8 +129,9 @@ export default function ProfileScreen() {
     });
     const maxSeconds = Math.max(...dailyStats.map(d => d.seconds), 1800);
     const PADDING_Y = 12;
+    const PADDING_X = 10;
     const points = dailyStats.map((d, i) => {
-      const x = (i / 6) * CHART_WIDTH;
+      const x = PADDING_X + (i / 6) * (CHART_WIDTH - 2 * PADDING_X);
       const y = (CHART_HEIGHT - PADDING_Y) - (d.seconds / maxSeconds) * (CHART_HEIGHT - 2 * PADDING_Y);
       return { x, y };
     });
@@ -131,25 +158,26 @@ export default function ProfileScreen() {
         contentContainerStyle={{ 
           paddingTop: insets.top + 20, 
           paddingBottom: insets.bottom + 120, 
-          paddingHorizontal: 20 
+          paddingHorizontal: 24 
         }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View className="mb-8 flex-row items-center justify-between">
           <View>
-            <Text className="text-[32px] font-black tracking-[-1px] text-white">My Studio</Text>
+            <Text className="text-[32px] font-black tracking-[-1px] text-white">{t.myStudio}</Text>
             <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
-              {streak > 0 ? `${streak} Day Streak 🔥` : "Start your journey"}
+              {streak > 0 ? `${streak} ${t.dayStreak} 🔥` : t.startJourney}
             </Text>
           </View>
 
           <View className="flex-row items-center gap-2">
             <HeaderButtons 
-              onEarnPress={() => router.push('/(tabs)/weather?scrollToAmbassador=true')}
+              onEarnPress={() => router.push(`/(tabs)/weather?scrollToAmbassador=${Date.now()}`)}
               onProPress={() => setPremiumVisible(true)}
             />
             
+
             <TouchableOpacity 
               onPress={() => setSettingsVisible(true)}
               className="h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/10"
@@ -161,40 +189,96 @@ export default function ProfileScreen() {
 
         <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
 
-        {/* 1. VISUAL JOURNEY (STACKED POLAROIDS) */}
-        <View className="mb-6 px-6">
-          <GlassCard style={{ padding: 22, borderRadius: 48, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
-            <View className="mb-4 flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <Camera size={20} color={COLORS.accentYellow} />
-                <Text className="ml-3 text-xl font-black text-white">Visual Journey</Text>
-              </View>
-              <View className="flex-row items-center bg-black/70 px-3 py-1.5 rounded-2xl border border-white/20">
-                 <Text className="text-3xl">🔥</Text>
-                 <Text className="ml-1 text-3xl font-black text-[#fbffab]" style={{ textShadowColor: 'rgba(255, 172, 51, 0.4)', textShadowRadius: 15 }}>
-                   {streak}
-                 </Text>
-              </View>
+        <View className="mb-12">
+          <View className="mb-6 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+               <HistoryIcon size={20} color={COLORS.accentYellow} />
+               <Text className="ml-3 text-xl font-black text-white">{t.referralProgram}</Text>
             </View>
-            
-            <ScrollView 
-              ref={scrollRef}
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 10 }}
-            >
-              <View className="flex-row gap-4">
+            <View className="bg-accentYellow/10 px-3 py-1 rounded-lg border border-accentYellow/20">
+               <Text className="text-[10px] font-black text-accentYellow uppercase">Active</Text>
+            </View>
+          </View>
+
+          <GlassCard style={{ padding: 24, borderRadius: 44, borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.8)", borderColor: "rgba(255,255,255,0.15)" }}>
+            <Text className="text-sm font-bold text-white/70 mb-6 leading-5">
+              {t.language === 'it' 
+                ? "Invita i tuoi contatti. Riceverai un aggiornamento sui tuoi guadagni ogni lunedì via email." 
+                : "Invite your contacts. You will receive an update on your earnings every Monday via email."}
+            </Text>
+
+            <View className="mb-6">
+               <Text className="text-[10px] font-black text-white/40 uppercase tracking-[2px] mb-3">Add Contact</Text>
+               <View className="flex-row items-center bg-white/5 border border-white/10 rounded-2xl px-4 h-14">
+                  <Bell size={18} color="rgba(255,255,255,0.3)" />
+                  <Text className="ml-3 text-white/30 flex-1">email@example.com</Text>
+                  <TouchableOpacity className="bg-accentYellow px-4 py-2 rounded-xl">
+                    <Text className="text-[10px] font-black text-black uppercase">Invite</Text>
+                  </TouchableOpacity>
+               </View>
+            </View>
+
+            <View className="flex-row items-center mb-8">
+               <TouchableOpacity className="h-6 w-6 rounded-md border border-white/20 bg-white/5 items-center justify-center mr-3">
+                  <Check size={14} color={COLORS.accentYellow} />
+               </TouchableOpacity>
+               <Text className="text-[11px] font-bold text-white/50 flex-1">
+                 {t.language === 'it' 
+                   ? "Dichiaro di essere maggiorenne e accetto i termini di collaborazione." 
+                   : "I declare that I am of legal age and I accept the collaboration terms."}
+               </Text>
+            </View>
+
+            <View className="flex-row justify-between border-t border-white/5 pt-6">
+               <View>
+                  <Text className="text-[24px] font-black text-white">{history.length > 0 ? 5 : 0}</Text>
+                  <Text className="text-[9px] font-black text-white/30 uppercase tracking-[1px]">{t.totalReferrals}</Text>
+               </View>
+               <View className="items-end">
+                  <View className="flex-row items-center bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+                    <Clock size={12} color="white" opacity={0.5} />
+                    <Text className="ml-2 text-[10px] font-black text-white/50 uppercase">Update: Monday</Text>
+                  </View>
+               </View>
+            </View>
+          </GlassCard>
+        </View>
+
+        {/* 1. VISUAL JOURNEY (STACKED POLAROIDS) */}
+        <View className="mb-10">
+          <View className="mb-2 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <Camera size={20} color={COLORS.accentYellow} />
+              <Text className="ml-3 text-xl font-black text-white">{t.visualJourney}</Text>
+            </View>
+            <View className="flex-row items-center bg-black/40 px-3 py-1.5 rounded-2xl border border-white/10">
+               <Text className="text-3xl">🔥</Text>
+               <Text className="ml-1 text-3xl font-black text-[#fbffab]" style={{ textShadowColor: 'rgba(255, 172, 51, 0.4)', textShadowRadius: 15 }}>
+                 {streak}
+               </Text>
+            </View>
+          </View>
+          
+          <ScrollView 
+            ref={visualJourneyRef}
+            onContentSizeChange={() => visualJourneyRef.current?.scrollToEnd({ animated: false })}
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}
+            style={{ marginHorizontal: -24 }}
+          >
+            <View className="flex-row gap-4 px-2">
                 {timelineDays.map((day, i) => {
                   const isToday = i === timelineDays.length - 1;
                   const lastSession = day.sessions[day.sessions.length - 1];
                   
                   return (
-                    <View key={day.dateStr} className="items-center" style={{ width: 110 }}>
-                      <View className="mb-4 items-center">
-                        <Text className={`text-[11px] font-black uppercase tracking-[1.5px] ${isToday ? 'text-accentYellow' : 'text-white/50'}`}>
-                          {day.date.toLocaleDateString(undefined, { weekday: 'short' })}
+                    <View key={day.dateStr} className="items-center" style={{ width: 85 }}>
+                      <View className="mb-3 items-center">
+                        <Text className={`text-[9px] font-black uppercase tracking-[1.5px] ${isToday ? 'text-accentYellow' : 'text-white/50'}`}>
+                          {isToday ? (t.language === 'it' ? 'Oggi' : 'Today') : day.date.toLocaleDateString(t.language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short' })}
                         </Text>
-                        <Text className={`text-[10px] font-bold ${isToday ? 'text-accentYellow' : 'text-white/20'}`}>
+                        <Text className={`text-[11px] font-bold mt-0.5 ${isToday ? 'text-accentYellow' : 'text-white/20'}`}>
                           {day.date.getDate()}
                         </Text>
                       </View>
@@ -203,20 +287,20 @@ export default function ProfileScreen() {
                         <TouchableOpacity 
                           activeOpacity={0.9}
                           onPress={() => lastSession && setSelectedSession(lastSession)}
-                          className={`h-28 w-28 rounded-[32px] overflow-hidden border border-white items-center justify-center ${lastSession ? 'bg-black' : 'bg-white/[0.02] border-dashed border-white/20'}`}
+                          className={`h-20 w-20 rounded-[24px] overflow-hidden border items-center justify-center ${lastSession ? 'bg-black border-white' : 'bg-white/10 border-white/30'}`}
                         >
                           {lastSession?.imageUri ? (
                             <Image source={{ uri: lastSession.imageUri }} className="h-full w-full opacity-90" />
                           ) : (
                             <View className="items-center">
-                              <Sun size={20} color="white" opacity={0.1} />
+                              <Sun size={16} color="white" opacity={0.3} />
                             </View>
                           )}
                         </TouchableOpacity>
 
                         {lastSession?.skinColorHex && (
                           <View 
-                            className="absolute -bottom-1.5 -right-1.5 h-9 w-9 rounded-full border-4 border-black"
+                            className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-[3px] border-black"
                             style={{ backgroundColor: lastSession.skinColorHex }}
                           />
                         )}
@@ -226,12 +310,11 @@ export default function ProfileScreen() {
                 })}
               </View>
             </ScrollView>
-          </GlassCard>
         </View>
 
         {/* 2. QUICK SETTINGS (SPF & TONE) */}
-        <View className="mb-12 px-6">
-          <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", backgroundColor: "rgba(0,0,0,0.75)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 28, elevation: 22 }}>
+        <View className="mb-12">
+          <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
             <View className="mb-8">
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center">
@@ -251,7 +334,7 @@ export default function ProfileScreen() {
                       onPress={() => setCurrentSpf(spf)}
                       className={`h-11 px-5 rounded-xl items-center justify-center border ${currentSpf === spf ? 'border-accentOrange bg-accentOrange' : 'border-white/10 bg-white/5'}`}
                     >
-                      <Text className={`text-[11px] font-black ${currentSpf === spf ? 'text-white' : 'text-white/40'}`}>
+                      <Text className={`text-[11px] font-black ${currentSpf === spf ? 'text-black' : 'text-white/40'}`}>
                         {spf === 0 ? "OFF" : `SPF ${spf}`}
                       </Text>
                     </TouchableOpacity>
@@ -292,9 +375,11 @@ export default function ProfileScreen() {
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center">
                    <Zap size={18} color={COLORS.accentYellow} />
-                   <Text className="ml-3 text-lg font-black text-white">Target Tone</Text>
+                   <Text className="ml-3 text-lg font-black text-white">Skin Type</Text>
                 </View>
-                <View className="h-6 w-6 rounded-full border border-white/20" style={{ backgroundColor: skinHex || '#C68642' }} />
+                <View className="bg-white/10 px-3 py-1 rounded-lg border border-white/20">
+                  <Text className="text-[10px] font-black text-white">TIMER BASE</Text>
+                </View>
               </View>
               
               <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mx-[-10px]">
@@ -305,7 +390,7 @@ export default function ProfileScreen() {
                       <TouchableOpacity
                         key={type.level}
                         onPress={() => handleToneChange(type.level, type.hex)}
-                        className={`h-14 w-14 rounded-2xl items-center justify-center border-2 ${isSelected ? 'border-accentYellow bg-accentYellow/10' : 'border-white/5 bg-white/5'}`}
+                        className={`h-14 w-14 rounded-2xl items-center justify-center border-2 ${isSelected ? 'border-accentYellow bg-accentYellow' : 'border-white/5 bg-white/5'}`}
                       >
                         <View className="h-8 w-8 rounded-full border border-white/20" style={{ backgroundColor: type.hex }} />
                         {isSelected && (
@@ -323,18 +408,18 @@ export default function ProfileScreen() {
         </View>
 
         {/* 3. ANALYTICS SECTION */}
-        <View className="px-6 mb-12">
+        <View className="mb-12">
           <View className="mb-6 flex-row items-center">
             <Activity size={20} color={COLORS.accentYellow} />
-            <Text className="ml-3 text-xl font-black text-white">Efficiency Trend</Text>
+            <Text className="ml-3 text-xl font-black text-white">{t.efficiencyTrend}</Text>
           </View>
 
           {analytics ? (
-            <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", backgroundColor: "rgba(0,0,0,0.75)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 28, elevation: 22 }}>
+            <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
               <View className="mb-8 flex-row items-start justify-between">
                 <View>
-                  <Text className="text-sm font-black text-white uppercase tracking-[1px]">Daily Exposure</Text>
-                  <Text className="text-[10px] font-bold text-white/40 uppercase">Performance Metrics</Text>
+                  <Text className="text-sm font-black text-white uppercase tracking-[1px]">{t.dailyExposure}</Text>
+                  <Text className="text-[10px] font-bold text-white/40 uppercase">{t.performanceMetrics}</Text>
                 </View>
                 <View className="flex-row items-center bg-green-500/20 px-3 py-1.5 rounded-xl border border-green-500/30">
                   <ArrowUpRight size={14} color="#4ADE80" />
@@ -342,7 +427,7 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
-              <View className="h-[120px] w-full mb-8 items-center">
+              <View className="h-[150px] w-full mb-6 items-center">
                 <Svg height={CHART_HEIGHT} width={CHART_WIDTH}>
                   <Path d={analytics.pathData} fill="none" stroke={COLORS.accentYellow} strokeWidth="5" strokeLinecap="round" />
                   {analytics.points.map((p, i) => (
@@ -351,41 +436,138 @@ export default function ProfileScreen() {
                 </Svg>
               </View>
 
-              <View className="flex-row justify-between px-2">
-                {['M','T','W','T','F','S','S'].map((day, i) => (
-                  <Text key={i} className="text-[10px] font-black text-white/30 uppercase tracking-[1px]">{day}</Text>
-                ))}
+              <View className="w-full mb-4 items-center">
+                <View style={{ width: CHART_WIDTH, height: 16, position: 'relative' }}>
+                  {analytics.points.map((p, i) => {
+                    const dayName = timelineDays.slice(-7)[i].date.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
+                    return (
+                      <Text 
+                        key={i} 
+                        style={{ position: 'absolute', left: p.x - 10, textAlign: 'center', width: 20 }} 
+                        className="text-[10px] font-black text-white/30 uppercase tracking-[1px]"
+                      >
+                        {dayName}
+                      </Text>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View className="border-t border-white/10 pt-5 mt-2">
+                <View className="flex-row justify-between mb-2">
+                   <View className="flex-1 items-center border-r border-white/10 px-2">
+                      <View className="h-8 w-8 rounded-full bg-accentYellow/10 items-center justify-center mb-2">
+                        <Zap size={14} color={COLORS.accentYellow} />
+                      </View>
+                      <Text className="text-[10px] font-black uppercase tracking-[1.5px] text-white/40 mb-1">{t.doseTrend}</Text>
+                      <Text className="text-[15px] font-black text-accentYellow text-center">{t.optimal}</Text>
+                   </View>
+                   <View className="flex-1 items-center px-2">
+                      <View className="h-8 w-8 rounded-full bg-accentOrange/10 items-center justify-center mb-2">
+                        <Shield size={14} color={COLORS.accentOrange} />
+                      </View>
+                      <Text className="text-[10px] font-black uppercase tracking-[1.5px] text-white/40 mb-1">{t.skinHealth}</Text>
+                      <Text className="text-[15px] font-black text-accentOrange text-center">98% {t.recovered}</Text>
+                   </View>
+                </View>
               </View>
             </GlassCard>
           ) : (
-            <GlassCard style={{ padding: 50, alignItems: "center", borderRadius: 48, width: "100%", backgroundColor: "rgba(0,0,0,0.75)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 28, elevation: 22 }}>
+            <GlassCard style={{ padding: 50, alignItems: "center", borderRadius: 48, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
               <BarChart3 size={36} color="white" opacity={0.1} />
               <Text className="mt-4 text-center text-xs font-black text-white/20 uppercase tracking-[2px]">
-                Awaiting Session Data
+                {t.awaitingData}
               </Text>
             </GlassCard>
           )}
         </View>
 
-        {/* 4. HISTORY LIST */}
-        <View className="px-6 mb-6 flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <HistoryIcon size={20} color="white" opacity={0.6} />
-            <Text className="ml-3 text-xl font-black text-white">Activity Log</Text>
+        {/* 3.5. PREMIUM BIOMETRICS */}
+        <View className="mb-12">
+          <View className="mb-6 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <Zap size={20} color={COLORS.accentYellow} />
+              <Text className="ml-3 text-xl font-black text-white">{t.biometricsVault}</Text>
+            </View>
+            <View className="bg-white/10 px-3 py-1 rounded-lg border border-white/20">
+              <Text className="text-[10px] font-black text-white">PREMIUM</Text>
+            </View>
           </View>
-          <Text className="text-xs font-black text-white/40 uppercase tracking-[1px]">{history.length} total</Text>
+
+          <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
+            {/* Vitamin D Section */}
+            <View className="mb-8">
+              <View className="flex-row items-center justify-between mb-4">
+                 <View className="flex-row items-center">
+                    <Sun size={16} color={COLORS.accentYellow} />
+                    <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">{t.vitDSynthesis}</Text>
+                 </View>
+                 <Text className="text-[11px] font-black text-accentYellow">{vitDGoalIU > 0 ? Math.round((weeklyVitD / vitDGoalIU) * 100) : 0}% {t.ofGoal}</Text>
+              </View>
+              <View className="h-4 w-full bg-white/10 rounded-full overflow-hidden mb-3">
+                 <LinearGradient
+                    colors={['#FACC15', '#FB923C']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={{ width: `${Math.min(100, vitDGoalIU > 0 ? (weeklyVitD / vitDGoalIU) * 100 : 0)}%`, height: '100%' }}
+                 />
+              </View>
+              <Text className="text-right text-[10px] font-bold text-white/40 uppercase tracking-[1px]">{weeklyVitD.toLocaleString()} / {vitDGoalIU.toLocaleString()} IU</Text>
+            </View>
+
+            {/* Tone Evolution Section */}
+            <View>
+              <View className="flex-row items-center justify-between mb-4">
+                 <View className="flex-row items-center">
+                    <Check size={16} color={COLORS.accentOrange} />
+                    <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">Tone Evolution</Text>
+                 </View>
+                 <Text className="text-[11px] font-black text-accentOrange">Baseline vs Current</Text>
+              </View>
+              <View className="flex-row items-center justify-between bg-white/5 p-4 rounded-3xl border border-white/10">
+                 <View className="items-center">
+                    <View className="h-12 w-12 rounded-full border-2 border-white/20 mb-2" style={{ backgroundColor: toneStart }} />
+                    <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-white/40">Baseline</Text>
+                 </View>
+                 
+                 <View className="flex-1 items-center px-4">
+                    <View className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                       <LinearGradient
+                          colors={[toneStart, toneEnd]}
+                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                          style={{ width: '100%', height: '100%' }}
+                       />
+                    </View>
+                    <Text className="mt-3 text-[10px] font-black uppercase tracking-[2px] text-white/60">Progression</Text>
+                 </View>
+
+                 <View className="items-center">
+                    <View className="h-12 w-12 rounded-full border-2 border-accentYellow mb-2" style={{ backgroundColor: toneEnd }} />
+                    <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-accentYellow">Current</Text>
+                 </View>
+              </View>
+            </View>
+          </GlassCard>
         </View>
 
-        <View className="px-6">
+        {/* 4. HISTORY LIST */}
+        <View className="mb-6 flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <HistoryIcon size={20} color="white" opacity={0.6} />
+            <Text className="ml-3 text-xl font-black text-white">{t.activityLog}</Text>
+          </View>
+          <Text className="text-xs font-black text-white/40 uppercase tracking-[1px]">{history.length} {t.totalLabel}</Text>
+        </View>
+
+        <View>
           {history.length === 0 ? (
-            <GlassCard style={{ padding: 40, alignItems: "center", borderRadius: 40, width: "100%", backgroundColor: "rgba(0,0,0,0.75)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 28, elevation: 22 }}>
+            <GlassCard style={{ padding: 40, alignItems: "center", borderRadius: 40, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
               <Sun size={32} color="white" opacity={0.1} />
-              <Text className="mt-4 text-xs font-black text-white/20 uppercase tracking-[2px]">Empty Log</Text>
+              <Text className="mt-4 text-center text-xs font-black text-white/20 uppercase tracking-[2px]">{t.emptyLog}</Text>
             </GlassCard>
           ) : (
             history.slice(0, 8).map((item) => (
               <TouchableOpacity key={item.id} activeOpacity={0.7} onPress={() => setSelectedSession(item)} className="mb-4 shadow-2xl">
-                <GlassCard style={{ borderRadius: 36, padding: 20, width: "100%", borderWidth: 1, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.75)", shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 28, elevation: 22 }}>
+                <GlassCard style={{ borderRadius: 36, padding: 20, width: "100%", borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
                   <View className="flex-row items-center">
                     <View 
                       className="h-16 w-16 items-center justify-center rounded-[22px] bg-black/40 border-2 overflow-hidden"
@@ -401,7 +583,7 @@ export default function ProfileScreen() {
                       <View className="flex-row items-center mb-1">
                         <Clock size={12} color="white" opacity={0.3} />
                         <Text className="ml-2 text-[11px] font-black text-white/40 uppercase tracking-[1.5px]">
-                          {new Date(item.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+                          {new Date(item.date).toLocaleDateString(t.language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short', day: 'numeric' })}
                         </Text>
                       </View>
                       <Text className="text-[22px] font-black text-white tracking-[-0.5px]">{formatDuration(item.totalSeconds)}</Text>
@@ -425,8 +607,8 @@ export default function ProfileScreen() {
         </View>
 
         {/* Danger Zone */}
-        <View className="px-6 mt-16">
-          <GlassCard style={{ padding: 2, borderRadius: 32, width: "100%", backgroundColor: "rgba(0,0,0,0.75)", borderColor: "rgba(255,59,48,0.35)", shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 28, elevation: 22 }}>
+        <View className="mt-16">
+          <GlassCard style={{ padding: 2, borderRadius: 32, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "rgba(255,59,48,0.35)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
             <TouchableOpacity 
               onPress={resetProfile} 
               className="flex-row items-center justify-center rounded-[30px] border border-red-500/20 bg-red-500/5 py-6"
@@ -434,11 +616,23 @@ export default function ProfileScreen() {
             >
               <Trash2 size={18} color="#FF3B30" />
               <Text className="ml-3 text-xs font-black uppercase tracking-[3px] text-[#FF3B30]">
-                Purge All Data
+                {t.purgeData}
               </Text>
             </TouchableOpacity>
           </GlassCard>
         </View>
+
+        {/* Lock message for non-premium */}
+        {!hasPremium && history.length > 0 && (
+          <TouchableOpacity 
+            onPress={() => setPremiumVisible(true)}
+            className="mt-6 flex-row items-center justify-center bg-white/5 border border-accentYellow/20 p-4 rounded-2xl"
+          >
+             <Lock size={16} color={COLORS.accentYellow} />
+             <Text className="ml-2 text-white/70 font-bold text-[10px] uppercase tracking-[1px]">{t.language === 'it' ? "Sblocca tutto lo storico con Premium" : "Unlock full history with Premium"}</Text>
+          </TouchableOpacity>
+        )}
+
       </ScrollView>
 
       {/* SESSION DETAIL MODAL */}

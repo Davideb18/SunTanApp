@@ -1,19 +1,22 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+import { Lock } from "lucide-react-native";
 
 interface Props {
   mode: "coach" | "personal";
   onChange: (mode: "coach" | "personal") => void;
+  coachLocked?: boolean;
 }
 
-export function ModeSelector({ mode, onChange }: Props) {
+export function ModeSelector({ mode, onChange, coachLocked }: Props) {
   return (
     <View className="w-full flex-row rounded-2xl bg-white/10 p-1">
       <TouchableOpacity
-        className={`flex-1 items-center rounded-xl py-2.5 ${mode === "coach" ? "bg-accentYellow" : ""}`}
+        className={`flex-1 flex-row items-center justify-center rounded-xl py-2.5 ${mode === "coach" ? "bg-accentYellow" : ""}`}
         onPress={() => onChange("coach")}
         activeOpacity={0.8}
       >
+        {coachLocked && <Lock size={12} color={mode === "coach" ? "black" : "white"} style={{ marginRight: 6, opacity: mode === "coach" ? 1 : 0.4 }} />}
         <Text className={`text-xs font-extrabold tracking-[1px] ${mode === "coach" ? "text-black" : "text-white/40"}`}>
           COACH
         </Text>

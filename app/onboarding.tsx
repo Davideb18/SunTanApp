@@ -29,6 +29,7 @@ import {
 import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { LegalModal } from "@/components/LegalModal";
+import { useTranslation } from "@/constants/i18n";
 
 const { width } = Dimensions.get("window");
 
@@ -41,6 +42,7 @@ const { width } = Dimensions.get("window");
  * A vibrant linear bar with a clipped gradient that reveals as progress grows.
  */
 const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) => {
+  const t = useTranslation();
   const progress = (currentStep + 1) / totalSteps;
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -62,7 +64,7 @@ const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSt
         </Animated.View>
       </View>
       <Text className="mt-2 text-center text-xs font-bold uppercase tracking-[1px] text-white">
-        Step {currentStep + 1} of {totalSteps}
+        {t.step} {currentStep + 1} {t.of} {totalSteps}
       </Text>
     </View>
   );
@@ -77,6 +79,7 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const setSkinProfile = useAppStore((state) => state.setSkinProfile);
   const completeOnboarding = useAppStore((state) => state.completeOnboarding);
+  const t = useTranslation();
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
@@ -167,8 +170,8 @@ export default function OnboardingScreen() {
                     style={{ height: 6, width: 40, borderRadius: 3, marginTop: -2 }}
                   />
                 </View>
-                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Welcome & Safety</Text>
-                <Text className="mb-8 text-base leading-[22px] text-white/70">To ensure your protection and provide the best tanning experience, please review our guidelines.</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">{t.welcomeTitle}</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">{t.welcomeDesc}</Text>
                 
                 <GlassCard style={{ 
                   padding: 20, 
@@ -179,10 +182,10 @@ export default function OnboardingScreen() {
                 }}>
                   <View className="flex-row items-center mb-3">
                     <ShieldCheck size={24} color={COLORS.accentYellow} />
-                    <Text className="ml-4 text-lg font-black text-white">Legal Agreement</Text>
+                    <Text className="ml-4 text-lg font-black text-white">{t.legalAgreement}</Text>
                   </View>
                   <Text className="text-sm leading-[20px] text-white/60 mb-6">
-                    By using Glowy, you agree that environmental data and exposure timers are scientific estimates for guidance. Always follow safe sun practices and your physician's advice.
+                    {t.legalDesc}
                   </Text>
                   
                   <TouchableOpacity 
@@ -194,19 +197,19 @@ export default function OnboardingScreen() {
                       {acceptedLegal && <Check size={14} color="black" strokeWidth={4} />}
                     </View>
                     <Text className="ml-4 flex-1 text-sm font-bold text-white">
-                      I agree to the{" "}
+                      {t.iAgree}{" "}
                       <Text 
                         onPress={() => { setLegalType("terms"); setLegalVisible(true); }}
                         className="text-accentYellow underline"
                       >
-                        Terms
+                        {t.terms}
                       </Text>{" "}
-                      &{" "}
+                      {t.and}{" "}
                       <Text 
                         onPress={() => { setLegalType("privacy"); setLegalVisible(true); }}
                         className="text-accentYellow underline"
                       >
-                        Privacy Policy
+                        {t.privacyPolicy}
                       </Text>
                     </Text>
                   </TouchableOpacity>
@@ -216,8 +219,8 @@ export default function OnboardingScreen() {
 
             {step === 1 && (
               <>
-                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Your Skin Tone</Text>
-                <Text className="mb-8 text-base leading-[22px] text-white/70">Select the tone that best matches your skin</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">{t.yourSkinTone}</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">{t.skinToneDesc}</Text>
                 <ScrollView 
                   showsVerticalScrollIndicator={false} 
                   contentContainerStyle={{ paddingBottom: 160 }}
@@ -265,7 +268,7 @@ export default function OnboardingScreen() {
                             className="mt-4 text-[12px] font-black text-center uppercase tracking-[2px]"
                             style={{ color: fitzpatrick === type.level ? COLORS.accentYellow : "rgba(255,255,255,0.7)" }}
                           >
-                            Type {type.level}
+                            {t.type} {type.level}
                           </Text>
                         </GlassCard>
                       </TouchableOpacity>
@@ -277,8 +280,8 @@ export default function OnboardingScreen() {
 
             {step === 2 && (
               <>
-                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Sun Reaction</Text>
-                <Text className="mb-8 text-base leading-[22px] text-white/70">How does your skin react to direct sunlight?</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">{t.sunReaction}</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">{t.sunReactionDesc}</Text>
                 <ScrollView 
                   showsVerticalScrollIndicator={false} 
                   contentContainerStyle={{ paddingBottom: 160 }}
@@ -303,8 +306,16 @@ export default function OnboardingScreen() {
                       >
                         <Text className="mr-5 text-[32px]">{opt.emoji}</Text>
                         <View className="flex-1">
-                          <Text className="mb-1 text-lg font-bold text-white">{opt.label}</Text>
-                          <Text className="text-sm text-white/60">{opt.description}</Text>
+                          <Text className="mb-1 text-lg font-bold text-white">
+                            {opt.id === 'never' ? t.reactNever : 
+                             opt.id === 'sometimes' ? t.reactSometimes : 
+                             opt.id === 'often' ? t.reactOften : t.reactAlways}
+                          </Text>
+                          <Text className="text-sm text-white/60">
+                            {opt.id === 'never' ? t.reactNeverDesc : 
+                             opt.id === 'sometimes' ? t.reactSometimesDesc : 
+                             opt.id === 'often' ? t.reactOftenDesc : t.reactAlwaysDesc}
+                          </Text>
                         </View>
                       </GlassCard>
                     </TouchableOpacity>
@@ -315,8 +326,8 @@ export default function OnboardingScreen() {
 
             {step === 3 && (
               <>
-                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Current Tan</Text>
-                <Text className="mb-8 text-base leading-[22px] text-white/70">What is your current base tan level?</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">{t.currentTan}</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">{t.currentTanDesc}</Text>
                 <ScrollView 
                   showsVerticalScrollIndicator={false} 
                   contentContainerStyle={{ paddingBottom: 160 }}
@@ -341,8 +352,16 @@ export default function OnboardingScreen() {
                       >
                         <Text className="mr-5 text-[32px]">{opt.emoji}</Text>
                         <View className="flex-1">
-                          <Text className="mb-1 text-lg font-bold text-white">{opt.label}</Text>
-                          <Text className="text-sm text-white/60">{opt.description}</Text>
+                          <Text className="mb-1 text-lg font-bold text-white">
+                            {opt.id === 'none' ? t.baseNone : 
+                             opt.id === 'light' ? t.baseLight : 
+                             opt.id === 'medium' ? t.baseMedium : t.baseDeep}
+                          </Text>
+                          <Text className="text-sm text-white/60">
+                            {opt.id === 'none' ? t.baseNoneDesc : 
+                             opt.id === 'light' ? t.baseLightDesc : 
+                             opt.id === 'medium' ? t.baseMediumDesc : t.baseDeepDesc}
+                          </Text>
                         </View>
                       </GlassCard>
                     </TouchableOpacity>
@@ -353,8 +372,8 @@ export default function OnboardingScreen() {
 
             {step === 4 && (
               <>
-                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">Preferred SPF</Text>
-                <Text className="mb-8 text-base leading-[22px] text-white/70">Which protection factor will you use today?</Text>
+                <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">{t.preferredSpf}</Text>
+                <Text className="mb-8 text-base leading-[22px] text-white/70">{t.preferredSpfDesc}</Text>
                 <ScrollView 
                   showsVerticalScrollIndicator={false} 
                   contentContainerStyle={{ paddingBottom: 160 }}
@@ -391,11 +410,11 @@ export default function OnboardingScreen() {
                                 lineHeight: 48
                               }}
                             >
-                              {opt.label}
+                              {opt.value === 0 ? t.none : opt.label}
                             </Text>
                             {opt.value !== 0 && (
                               <Text className="text-[10px] font-black text-center uppercase text-white/40 tracking-[2px]">
-                                SPF FACTOR
+                                {t.spfFactor}
                               </Text>
                             )}
                           </GlassCard>
@@ -426,7 +445,7 @@ export default function OnboardingScreen() {
               }}
             >
               <Text className="mr-2 text-lg font-extrabold" style={{ color: COLORS.tabBarBg }}>
-                {step === totalSteps - 1 ? "Start Tanning" : "Continue"}
+                {step === totalSteps - 1 ? t.startTanning : t.continue}
               </Text>
               <ChevronRight color={COLORS.tabBarBg} size={24} />
             </TouchableOpacity>

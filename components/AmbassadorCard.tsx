@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Image, Modal, ScrollView, Share, TextInput, Clipboard } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { X, Share2, Zap, Trophy, Crown, CheckCircle2, AlertOctagon, Lightbulb, Copy, Heart, Rocket, DollarSign, ShieldCheck, UserCheck, EyeOff } from "lucide-react-native";
+import { useTranslation } from "@/constants/i18n";
 
 export const AmbassadorCard = () => {
+  const t = useTranslation();
   const [isModalVisible, setModalVisible] = useState(false);
   const [hasCode, setHasCode] = useState(false);
   const [userName, setUserName] = useState("");
@@ -22,7 +24,9 @@ export const AmbassadorCard = () => {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `☀️ Join the #GlowyGoddess team! Use my code ${promoCode} for up to 60% OFF Premium! 💸 Get your perfect tan today! ${hashtag}`,
+        message: t.language === 'it' 
+          ? `☀️ Unisciti al team #GlowyGoddess! Usa il mio codice ${promoCode} per ricevere fino al 60% di SCONTO su Premium! 💸 Ottieni la tua abbronzatura perfetta oggi! ${hashtag}`
+          : `☀️ Join the #GlowyGoddess team! Use my code ${promoCode} for up to 60% OFF Premium! 💸 Get your perfect tan today! ${hashtag}`,
       });
     } catch (error) {
       console.error(error);
@@ -50,7 +54,7 @@ export const AmbassadorCard = () => {
           <View className="w-full bg-white/10 px-6 pb-6 pt-6 rounded-2xl border border-white/30 items-center">
             <View className="flex-row items-center bg-white h-16 rounded-xl overflow-hidden mb-4 pr-4">
               <TextInput
-                placeholder="YOUR NAME"
+                placeholder={t.language === 'it' ? "IL TUO NOME" : "YOUR NAME"}
                 placeholderTextColor="rgba(0,0,0,0.3)"
                 value={userName}
                 onChangeText={setUserName}
@@ -66,19 +70,19 @@ export const AmbassadorCard = () => {
               onPress={() => setModalVisible(true)}
               className="w-full bg-white h-16 rounded-2xl items-center justify-center shadow-lg mb-3"
             >
-              <Text className="font-black text-lg text-[#EC4899]">See Earnings & How-To</Text>
+              <Text className="font-black text-lg text-[#EC4899]">{t.seeEarnings}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity onPress={handleActivate} disabled={userName.trim().length < 3}>
               <Text className={`font-bold text-xs underline ${userName.trim().length < 3 ? 'text-white/40' : 'text-white'}`}>
-                {userName.trim().length < 3 ? 'Enter at least 3 letters' : `Activate: ${promoCode}`}
+                {userName.trim().length < 3 ? t.enterLetters : `${t.activate}: ${promoCode}`}
               </Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View className="w-full bg-white p-6 rounded-2xl items-center shadow-2xl">
             <View className="bg-green-100 px-3 py-1 rounded-full mb-3">
-              <Text className="text-green-600 font-black text-[10px] uppercase tracking-[1px]">Code Active ⚡️</Text>
+              <Text className="text-green-600 font-black text-[10px] uppercase tracking-[1px]">{t.codeActive} ⚡️</Text>
             </View>
             <Text className="text-3xl font-black text-black tracking-[2px] mb-5">{promoCode}</Text>
             <TouchableOpacity 
@@ -86,10 +90,10 @@ export const AmbassadorCard = () => {
               className="bg-black w-full h-16 rounded-xl items-center justify-center flex-row"
             >
               <Share2 size={20} color="white" className="mr-2" />
-              <Text className="text-white font-black text-lg text-center">SHARE & EARN CASH</Text>
+              <Text className="text-white font-black text-lg text-center">{t.shareEarn}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalVisible(true)} className="mt-4">
-              <Text className="text-black/40 font-bold text-xs underline">Review Program Rules</Text>
+              <Text className="text-black/40 font-bold text-xs underline">{t.programRules}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -103,7 +107,7 @@ export const AmbassadorCard = () => {
             {/* Modal Header */}
             <View className="p-8 flex-row items-center justify-between border-b border-gray-100">
               <View className="flex-1 items-center">
-                <Text className="text-[28px] font-black text-black">Partner Guide</Text>
+                <Text className="text-[28px] font-black text-black">{t.partnerGuide}</Text>
               </View>
               <TouchableOpacity onPress={() => setModalVisible(false)} className="absolute right-8">
                 <X size={28} color="black" />
@@ -115,29 +119,29 @@ export const AmbassadorCard = () => {
               <View className="mb-10">
                 <View className="flex-row items-center mb-6">
                   <DollarSign size={24} color="#F59E0B" fill="#F59E0B" />
-                  <Text className="text-xl font-black ml-3">Earning Table:</Text>
+                  <Text className="text-xl font-black ml-3">{t.earningTable}:</Text>
                 </View>
                 <View className="bg-gray-50 rounded-3xl p-6 border border-gray-100">
                   <CommissionRow 
-                    label="Weekly Plan" 
+                    label={t.weeklyPlan} 
                     discount="€10 → €7 (30% OFF)" 
-                    prize="You get €5" 
+                    prize={t.language === 'it' ? "Ottieni €5" : "You get €5"} 
                   />
                   <View className="h-[1px] bg-gray-200 my-4" />
                   <CommissionRow 
-                    label="Quarterly Plan" 
+                    label={t.quarterlyPlan} 
                     discount="€30 → €20 (33% OFF)" 
-                    prize="You get €10" 
+                    prize={t.language === 'it' ? "Ottieni €10" : "You get €10"} 
                   />
                   <View className="h-[1px] bg-gray-200 my-4" />
                   <CommissionRow 
-                    label="Annual Plan" 
+                    label={t.annualPlan} 
                     discount="€100 → €40 (60% OFF)" 
-                    prize="You get €20" 
+                    prize={t.language === 'it' ? "Ottieni €20" : "You get €20"} 
                   />
                   <View className="mt-6 pt-6 border-t-2 border-dashed border-gray-200 items-center">
-                    <Text className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Real-time payments</Text>
-                    <Text className="text-black font-black text-lg mt-1">Unlimited Earnings 🚀</Text>
+                    <Text className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">{t.language === 'it' ? "PAGAMENTI REAL-TIME" : "Real-time payments"}</Text>
+                    <Text className="text-black font-black text-lg mt-1">{t.unlimitedEarnings}</Text>
                   </View>
                 </View>
               </View>
@@ -146,7 +150,7 @@ export const AmbassadorCard = () => {
               <View className="mb-10">
                 <View className="flex-row items-center mb-6">
                   <Rocket size={24} color="#7C3AED" />
-                  <Text className="text-xl font-black ml-3">How to Start:</Text>
+                  <Text className="text-xl font-black ml-3">{t.howToStart}:</Text>
                 </View>
                 <View className="space-y-6">
                   <StepItem 
@@ -185,28 +189,28 @@ export const AmbassadorCard = () => {
               <View className="mb-10">
                 <View className="flex-row items-center mb-6">
                   <ShieldCheck size={24} color="#22C55E" />
-                  <Text className="text-xl font-black ml-3">Official Rules:</Text>
+                  <Text className="text-xl font-black ml-3">{t.officialRules}:</Text>
                 </View>
                 <View className="space-y-5">
                   <PolicyItem 
                     icon={<UserCheck size={18} color="#000" />} 
-                    title="Age Verification" 
-                    desc="You must be at least 18 years old. Earnings are paid after ID verification." 
+                    title={t.ageVerification} 
+                    desc={t.language === 'it' ? "Devi avere almeno 18 anni. I pagamenti vengono effettuati dopo la verifica dell'identità." : "You must be at least 18 years old. Earnings are paid after ID verification."} 
                   />
                   <PolicyItem 
                     icon={<Heart size={18} color="#EC4899" fill="#EC4899" />} 
-                    title="Sexy-But-Safe Policy" 
-                    desc="Quality content only. Bikini/Lingerie OK. Full nudity is strictly prohibited and leads to immediate ban." 
+                    title={t.sexySafePolicy} 
+                    desc={t.language === 'it' ? "Solo contenuti di qualità. Bikini/Lingerie OK. La nudità completa è severamente vietata." : "Quality content only. Bikini/Lingerie OK. Full nudity is strictly prohibited."} 
                   />
                   <PolicyItem 
                     icon={<AlertOctagon size={18} color="#EF4444" />} 
-                    title="Authenticity" 
-                    desc="Only original content. Reposting or stealing other creators' photos is not allowed." 
+                    title={t.authenticity} 
+                    desc={t.language === 'it' ? "Solo contenuti originali. Non è consentito ripubblicare o rubare foto di altri creatori." : "Only original content. Reposting or stealing other creators' photos is not allowed."} 
                   />
                   <PolicyItem 
                     icon={<EyeOff size={18} color="#60A5FA" />} 
-                    title="No Artificial Traffic" 
-                    desc="Bots, fake views, or paid ads (Spark Ads) on your referral link are forbidden." 
+                    title={t.noArtificialTraffic} 
+                    desc={t.language === 'it' ? "Bot, visualizzazioni false o annunci a pagamento sul tuo link di riferimento sono vietati." : "Bots, fake views, or paid ads on your referral link are forbidden."} 
                   />
                 </View>
               </View>

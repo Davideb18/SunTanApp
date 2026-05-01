@@ -7,6 +7,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { schedulePhaseEndNotification, cancelPhaseEndNotification, scheduleDailySunNotification, scheduleSafetyAlert } from "../utils/notifications";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,6 +71,7 @@ export interface AppState {
   units: "metric" | "imperial";
   notificationsEnabled: boolean;
   vitDGoalIU: number;
+  lastSafetyAlertDate: string | null;
 
   // ── Actions ───────────────────────────────────────────────────────────────
   setSkinProfile: (params: {
@@ -129,20 +131,16 @@ function generatePhases(
 ): SessionPhase[] {
   const phases: SessionPhase[] = [];
   
-  // 1. Initial Protection (Shortened for short personal sessions)
-  const sunscreenTime = (mode === "personal" && totalSeconds < 600) ? 60 : 120;
-  phases.push({ label: "APPLY SUNSCREEN", duration: sunscreenTime, type: "sunscreen" });
-
-  let exposureSeconds = totalSeconds - sunscreenTime;
-  if (exposureSeconds <= 0) exposureSeconds = totalSeconds; // Fallback
+  // 1. Exposure Seconds (Now uses full duration, no sunscreen overhead)
+  let exposureSeconds = totalSeconds;
 
   // 2. Personal Mode - Simple Equal Split
   if (mode === "personal") {
     if (exposureSeconds > 300) { // More than 5 mins exposure
       const half = Math.floor(exposureSeconds / 2);
       phases.push({ label: "FRONT SIDE", duration: half, type: "front" });
-      phases.push({ label: "FLIP POSITION", duration: 30, type: "flip" });
-      phases.push({ label: "BACK SIDE", duration: half - 30, type: "back" });
+      phases.push({ label: "FLIP POSITION", duration: 10, type: "flip" });
+      phases.push({ label: "BACK SIDE", duration: half - 10, type: "back" });
     } else {
       phases.push({ label: "QUICK EXPOSURE", duration: exposureSeconds, type: "front" });
     }
@@ -151,16 +149,16 @@ function generatePhases(
 
   // 3. Coach Mode - derived rotation timing
   let safeRotationCount = Math.max(2, Math.min(rotationCount ?? 4, 8));
-  let flipDuration = safeRotationCount > 1 ? 30 * (safeRotationCount - 1) : 0;
-  let coachExposureSeconds = totalSeconds - sunscreenTime - flipDuration;
+  let flipDuration = safeRotationCount > 1 ? 10 * (safeRotationCount - 1) : 0;
+  let coachExposureSeconds = totalSeconds - flipDuration;
 
-  while (safeRotationCount > 2 && coachExposureSeconds < safeRotationCount * 30) {
+  while (safeRotationCount > 2 && coachExposureSeconds < safeRotationCount * 10) {
     safeRotationCount -= 1;
-    flipDuration = safeRotationCount > 1 ? 30 * (safeRotationCount - 1) : 0;
-    coachExposureSeconds = totalSeconds - sunscreenTime - flipDuration;
+    flipDuration = safeRotationCount > 1 ? 10 * (safeRotationCount - 1) : 0;
+    coachExposureSeconds = totalSeconds - flipDuration;
   }
 
-  coachExposureSeconds = Math.max(coachExposureSeconds, safeRotationCount * 30);
+  coachExposureSeconds = Math.max(coachExposureSeconds, safeRotationCount * 10);
   const baseExposure = Math.floor(coachExposureSeconds / safeRotationCount);
   let remainder = coachExposureSeconds - baseExposure * safeRotationCount;
   let side: "front" | "back" = "front";
@@ -176,7 +174,7 @@ function generatePhases(
     });
 
     if (index < safeRotationCount - 1) {
-      phases.push({ label: "FLIP POSITION", duration: 30, type: "flip" });
+      phases.push({ label: "FLIP POSITION", duration: 10, type: "flip" });
     }
 
     side = side === "front" ? "back" : "front";
@@ -217,6 +215,7 @@ const DEFAULT_STATE = {
   units: "metric" as "metric" | "imperial",
   notificationsEnabled: true,
   vitDGoalIU: 15000,
+  lastSafetyAlertDate: null as string | null,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -239,18 +238,35 @@ export const useAppStore = create<AppState>()(
 
       setLastEngineMode: (mode) => set({ lastEngineMode: mode }),
 
-      setWeatherData: ({ currentUv, currentTemp, feelsLikeTemp, hourlyUvData, locationName }) =>
-        set((state) => ({
-          cachedCurrentUv: currentUv,
-          currentTemp,
-          feelsLikeTemp,
-          hourlyUvData,
-          locationName: locationName ?? state.locationName,
-          lastWeatherFetch: Date.now(),
-        })),
+      setWeatherData: ({ currentUv, currentTemp, feelsLikeTemp, hourlyUvData, locationName }) => {
+        set((state) => {
+          if (state.notificationsEnabled && hourlyUvData && hourlyUvData.length > 0) {
+            scheduleDailySunNotification(hourlyUvData, currentTemp);
+          }
+          
+          let updatedSafetyDate = state.lastSafetyAlertDate;
+          const today = new Date().toDateString();
+          if (state.notificationsEnabled && today !== state.lastSafetyAlertDate) {
+            if (currentUv >= 9 || currentTemp >= 35) {
+              scheduleSafetyAlert(currentUv, currentTemp);
+              updatedSafetyDate = today;
+            }
+          }
+
+          return {
+            cachedCurrentUv: currentUv,
+            currentTemp,
+            feelsLikeTemp,
+            hourlyUvData,
+            locationName: locationName ?? state.locationName,
+            lastWeatherFetch: Date.now(),
+            lastSafetyAlertDate: updatedSafetyDate,
+          };
+        });
+      },
 
       // ── Session Actions Implementation ──────────────────────────────────────
-      startSession: (mode, totalSeconds, options) =>
+      startSession: (mode, totalSeconds, options) => {
         set((state) => {
           const phases = generatePhases(
             totalSeconds,
@@ -261,6 +277,10 @@ export const useAppStore = create<AppState>()(
           );
           const totalDuration = phases.reduce((acc, p) => acc + p.duration, 0);
           
+          if (state.notificationsEnabled) {
+             schedulePhaseEndNotification(phases[0].label, phases[0].duration);
+          }
+          
           return {
             currentSessionMode: mode,
             sessionPhases: phases,
@@ -270,37 +290,56 @@ export const useAppStore = create<AppState>()(
             sessionStatus: "active",
             isSessionActive: true,
           };
-        }),
+        });
+      },
 
-      pauseSession: () => set({ isSessionActive: false, sessionStatus: "paused" }),
+      pauseSession: () => {
+        cancelPhaseEndNotification();
+        set({ isSessionActive: false, sessionStatus: "paused" });
+      },
 
-      resumeSession: () => set({ isSessionActive: true, sessionStatus: "active" }),
+      resumeSession: () => {
+        set((state) => {
+          if (state.notificationsEnabled) {
+            schedulePhaseEndNotification(state.sessionPhases[state.currentPhaseIndex].label, state.sessionTimeRemaining);
+          }
+          return { isSessionActive: true, sessionStatus: "active" };
+        });
+      },
 
-      cancelSession: () => set({ 
-        sessionStatus: "idle", 
-        isSessionActive: false, 
-        sessionTimeRemaining: 0,
-        currentPhaseIndex: 0,
-        sessionPhases: [],
-        currentSessionMode: null,
-      }),
+      cancelSession: () => {
+        cancelPhaseEndNotification();
+        set({ 
+          sessionStatus: "idle", 
+          isSessionActive: false, 
+          sessionTimeRemaining: 0,
+          currentPhaseIndex: 0,
+          sessionPhases: [],
+          currentSessionMode: null,
+        });
+      },
 
-      nextPhase: () =>
+      nextPhase: () => {
         set((state) => {
           const nextIndex = state.currentPhaseIndex + 1;
           if (nextIndex < state.sessionPhases.length) {
+            if (state.notificationsEnabled) {
+              schedulePhaseEndNotification(state.sessionPhases[nextIndex].label, state.sessionPhases[nextIndex].duration);
+            }
             return {
               currentPhaseIndex: nextIndex,
               sessionTimeRemaining: state.sessionPhases[nextIndex].duration,
             };
           } else {
+            cancelPhaseEndNotification();
             return {
               sessionStatus: "done",
               isSessionActive: false,
               sessionTimeRemaining: 0,
             };
           }
-        }),
+        });
+      },
 
       tick: () =>
         set((state) => {
@@ -313,11 +352,15 @@ export const useAppStore = create<AppState>()(
           if (newRemaining <= 0) {
             const nextIndex = state.currentPhaseIndex + 1;
             if (nextIndex < state.sessionPhases.length) {
+              if (state.notificationsEnabled) {
+                schedulePhaseEndNotification(state.sessionPhases[nextIndex].label, state.sessionPhases[nextIndex].duration);
+              }
               return {
                 currentPhaseIndex: nextIndex,
                 sessionTimeRemaining: state.sessionPhases[nextIndex].duration,
               };
             } else {
+              cancelPhaseEndNotification();
               return {
                 sessionStatus: "done",
                 isSessionActive: false,
