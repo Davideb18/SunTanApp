@@ -129,15 +129,15 @@ export async function fetchWeatherData(): Promise<WeatherData> {
     let fallbackDryHour: number | null = null;
     if (peakHourRainRisk) {
       const dryCandidates = nextDayHourlyUv
-        .map((uvValue, hour) => ({
+        .map((uvValue: number, hour: number) => ({
           hour,
           uvValue,
           rainRisk: isRainRisk(nextDayHourlyCodes[hour] ?? 0, nextDayHourlyPrecipitation[hour] ?? 0),
         }))
-        .filter((item) => !item.rainRisk && item.uvValue > 0);
+        .filter((item: { hour: number; uvValue: number; rainRisk: boolean }) => !item.rainRisk && item.uvValue > 0);
 
       if (dryCandidates.length > 0) {
-        dryCandidates.sort((a, b) => {
+        dryCandidates.sort((a: { hour: number; uvValue: number }, b: { hour: number; uvValue: number }) => {
           if (b.uvValue !== a.uvValue) return b.uvValue - a.uvValue;
           return Math.abs(a.hour - normalizedPeakHour) - Math.abs(b.hour - normalizedPeakHour);
         });

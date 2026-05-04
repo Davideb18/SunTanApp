@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import { setupNotifications } from "../utils/notifications";
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 import "../global.css";
 
 export default function RootLayout() {
@@ -18,18 +19,23 @@ export default function RootLayout() {
     // Configure RevenueCat
     Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
 
-    const platformApiKey =
-      Platform.OS === "ios"
-        ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
-        : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
-    const testApiKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
-    const revenueCatApiKey = platformApiKey || testApiKey;
+    // RevenueCat native SDK non funziona dentro Expo Go.
+    // Verrà attivato solo in Dev Build e in Produzione.
+    const isExpoGo = Constants.appOwnership === "expo";
+    if (isExpoGo) {
+      console.log("[RevenueCat] Expo Go detected – purchases disabled. Use a Dev Build to test payments.");
+      return;
+    }
 
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+    const revenueCatApiKey = Platform.OS === "ios"
+      ? process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY
+      : undefined; // Android key can be added later
+
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       if (revenueCatApiKey) {
         Purchases.configure({ apiKey: revenueCatApiKey });
       } else {
-        console.warn("RevenueCat API key missing. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY / EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY or EXPO_PUBLIC_REVENUECAT_TEST_API_KEY.");
+        console.warn("[RevenueCat] API key missing.");
       }
     }
   }, []);

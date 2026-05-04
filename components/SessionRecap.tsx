@@ -188,7 +188,7 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
   const stats = [
     { label: t.durationLabel, value: formatDuration(session.totalSeconds), icon: Clock },
     { label: t.uvPeak, value: session.uvIndex.toFixed(1), icon: Sun },
-    { label: t.vitaminD, value: `${session.vitD} IU`, icon: Zap },
+    { label: t.vitaminD, value: `${session.vitD} ${t.language === 'it' ? "UI" : "IU"}`, icon: Zap },
     { label: t.hydration, value: `${session.sweatMl || 0} ML`, icon: Droplet },
   ];
 

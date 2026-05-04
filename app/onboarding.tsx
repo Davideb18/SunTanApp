@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronRight, ChevronLeft, ShieldCheck, Check } from "lucide-react-native";
@@ -15,6 +16,10 @@ import Animated, {
   SlideOutRight,
   useAnimatedStyle,
   withSpring,
+  useSharedValue,
+  withTiming,
+  withDelay,
+  Easing,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -71,6 +76,98 @@ const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSt
 };
 
 // ---------------------------------------------------------------------------
+// Progression Animation
+// ---------------------------------------------------------------------------
+
+const ProgressionAnimation = () => {
+  const t = useTranslation();
+  const height0 = useSharedValue(0);
+  const height1 = useSharedValue(0);
+  const height2 = useSharedValue(0);
+  const opacity = useSharedValue(0);
+
+  React.useEffect(() => {
+    height0.value = withDelay(500, withTiming(40, { duration: 1200, easing: Easing.out(Easing.exp) }));
+    height1.value = withDelay(500, withTiming(60, { duration: 1800, easing: Easing.out(Easing.exp) }));
+    height2.value = withDelay(500, withTiming(100, { duration: 2500, easing: Easing.out(Easing.exp) }));
+    opacity.value = withDelay(2500, withTiming(1, { duration: 800 }));
+  }, []);
+
+  const bar0Style = useAnimatedStyle(() => ({ height: `${height0.value}%` }));
+  const bar1Style = useAnimatedStyle(() => ({ height: `${height1.value}%` }));
+  const bar2Style = useAnimatedStyle(() => ({ height: `${height2.value}%` }));
+  const textStyle = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ scale: opacity.value }] }));
+
+  return (
+    <View className="flex-1 justify-start items-center mt-2">
+      {/* BACKGROUND TEXT */}
+      <View className="absolute inset-0 justify-start items-center z-[-1] -mt-6">
+         <Image source={require('@/assets/images/logo.png')} style={{ width: 480, height: 480, opacity: 0.15 }} resizeMode="contain" />
+      </View>
+
+      {/* MOTIVATION */}
+      <Text className="text-[30px] font-black text-white text-center mb-3 px-1 leading-[34px] uppercase tracking-tight">
+        {t.language === 'it' ? "IL PARAGONE\nNON REGGE" : "THERE IS NO\nCOMPARISON"}
+      </Text>
+      <Text className="text-[14px] font-bold text-white/70 text-center mb-8 px-4 leading-[22px]">
+        {t.language === 'it' 
+          ? "Costa meno dei solari classici, offre un controllo assoluto sui dettagli e garantisce una prevenzione personale su misura rispetto ad altre app." 
+          : "Costs less than classic sunscreens, offers absolute control over details, and guarantees personalized prevention compared to other apps."}
+      </Text>
+
+      {/* BARS CONTAINER */}
+      <View className="flex-row items-end justify-center h-[280px] w-full gap-5 mt-8">
+         {/* BAR 0: Senza app */}
+         <View className="items-center h-full w-[80px]">
+            <View className="flex-1 justify-end w-[60px] bg-white/3 rounded-[28px] overflow-hidden border border-white">
+               <Animated.View className="w-full bg-white/40 rounded-[28px]" style={bar0Style} />
+            </View>
+            <View className="h-[32px] mt-5 justify-start">
+               <Text className="text-[13px] font-black text-white uppercase tracking-[1px] text-center leading-[16px]">
+                  {t.language === 'it' ? "Senza\nApp" : "No\nApp"}
+               </Text>
+            </View>
+         </View>
+
+         {/* BAR 1: Competitors */}
+         <View className="items-center h-full w-[80px]">
+            <View className="flex-1 justify-end w-[60px] bg-white/10 rounded-[28px] overflow-hidden border border-white">
+               <Animated.View className="w-full bg-white/40 rounded-[28px]" style={bar1Style} />
+            </View>
+            <View className="h-[32px] mt-5 justify-start">
+               <Text className="text-[13px] font-black text-white uppercase tracking-[1px] text-center leading-[16px]">
+                  {t.language === 'it' ? "Altre\nApp" : "Other\nApps"}
+               </Text>
+            </View>
+         </View>
+
+         {/* BAR 2: Con Glowy */}
+         <View className="items-center h-full w-[95px]">
+            <Animated.View style={[textStyle, { shadowColor: "#FFDE00", width: 110 }]} className="absolute -top-12 items-center justify-center bg-accentYellow px-2 py-2 rounded-[16px] z-10 shadow-2xl">
+               <Text className="text-[14px] font-black text-black tracking-[1px] text-center w-full">3x FASTER</Text>
+            </Animated.View>
+            <View className="flex-1 justify-end w-[80px] bg-white/10 rounded-[40px] overflow-hidden border-2 border-white">
+               <Animated.View className="w-full rounded-[40px] overflow-hidden" style={bar2Style}>
+                 <LinearGradient
+                   colors={["#FFDE00", "#E53632"]}
+                   start={{ x: 0, y: 0 }}
+                   end={{ x: 1, y: 1 }}
+                   style={{ height: "100%", width: "100%" }}
+                 />
+               </Animated.View>
+            </View>
+            <View className="h-[32px] mt-5 justify-start">
+               <Text className="text-[16px] font-black text-accentYellow uppercase tracking-[2px] text-center">
+                  Glowy
+               </Text>
+            </View>
+         </View>
+      </View>
+    </View>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Screen
 // ---------------------------------------------------------------------------
 
@@ -86,7 +183,7 @@ export default function OnboardingScreen() {
   const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [legalVisible, setLegalVisible] = useState(false);
   const [legalType, setLegalType] = useState<"privacy" | "terms">("privacy");
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   // Selection state
   const [fitzpatrick, setFitzpatrick] = useState<number | null>(null);
@@ -128,7 +225,8 @@ export default function OnboardingScreen() {
     (step === 1 && fitzpatrick !== null) ||
     (step === 2 && reaction !== null) ||
     (step === 3 && baseTan !== null) ||
-    (step === 4);
+    (step === 4 && spf !== null) ||
+    (step === 5);
 
   // Animation mapping - Standardized for all steps
   const EnteringAnimation = direction === "forward" ? SlideInRight : SlideInLeft;
@@ -163,12 +261,7 @@ export default function OnboardingScreen() {
               <>
                 <View className="mb-10">
                   <Text className="text-[42px] font-black tracking-[-2px] text-white">GLOWY</Text>
-                  <LinearGradient
-                    colors={["#ef4444", "#ed9121"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{ height: 6, width: 40, borderRadius: 3, marginTop: -2 }}
-                  />
+                  <View style={{ height: 6, width: 40, backgroundColor: "#ef4444", marginTop: -2, borderRadius: 3 }} />
                 </View>
                 <Text className="mb-2 text-[32px] font-black tracking-[-0.5px] text-white">{t.welcomeTitle}</Text>
                 <Text className="mb-8 text-base leading-[22px] text-white/70">{t.welcomeDesc}</Text>
@@ -423,6 +516,10 @@ export default function OnboardingScreen() {
                   </View>
                 </ScrollView>
               </>
+            )}
+
+            {step === 5 && (
+              <ProgressionAnimation />
             )}
           </Animated.View>
         </View>

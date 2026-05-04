@@ -21,9 +21,10 @@ import { getUvBand, COLORS } from "@/constants/theme";
 import { fetchWeatherData, WeatherData } from "@/utils/weather";
 import { HeaderButtons } from "../../components/HeaderButtons";
 import { PremiumModal } from "../../components/PremiumModal";
-import { AmbassadorCard } from "../../components/AmbassadorCard";
 import { useTranslation } from "@/constants/i18n";
 import { SettingsModal } from "@/components/SettingsModal";
+import { AmbassadorModal } from "@/components/AmbassadorModal";
+import { AmbassadorCard } from "../../components/AmbassadorCard";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -65,20 +66,18 @@ export default function WeatherScreen() {
 
   const [premiumVisible, setPremiumVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [ambassadorVisible, setAmbassadorVisible] = useState(false);
   const mainScrollRef = React.useRef<ScrollView>(null);
   const ambassadorRef = React.useRef<View>(null);
 
   const scrollToAmbassador = () => {
-    ambassadorRef.current?.measure((x, y, width, height, pageX, pageY) => {
-      // Center ambassador card in viewport
-      const screenHeight = Dimensions.get('window').height;
-      const centeredY = y - (screenHeight / 2) + (height / 2);
-      
-      mainScrollRef.current?.scrollTo({ 
-        y: Math.max(0, centeredY), 
-        animated: true 
-      });
-    });
+    ambassadorRef.current?.measureLayout(
+      mainScrollRef.current as any,
+      (x, y) => {
+        mainScrollRef.current?.scrollTo({ y: y - 100, animated: true });
+      },
+      () => {}
+    );
   };
 
   useEffect(() => {
@@ -286,7 +285,7 @@ export default function WeatherScreen() {
         {/* Header */}
         <View className="mb-6 flex-row items-center justify-between">
           <View>
-            <Text className="text-[32px] font-black tracking-[-1px] text-white">Environment</Text>
+            <Text className="text-[24px] font-black tracking-[-0.5px] text-white">{t.environment}</Text>
             <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/80">
               {loading ? (t.language === "it" ? "Rilevamento posizione..." : "Detecting location...") : weather?.locationName || (t.language === "it" ? "Posizione non disponibile" : "Location unavailable")}
             </Text>
@@ -294,7 +293,7 @@ export default function WeatherScreen() {
           
           <View className="flex-row items-center gap-2">
             <HeaderButtons 
-              onEarnPress={scrollToAmbassador}
+              onPartnerPress={scrollToAmbassador}
               onProPress={() => setPremiumVisible(true)}
             />
             <TouchableOpacity 
@@ -344,8 +343,8 @@ export default function WeatherScreen() {
           <GlassCard style={{ padding: 24, marginBottom: 24, borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
             <View className="flex-row items-center justify-between mb-8">
               <View>
-                <Text className="text-[10px] font-black uppercase tracking-[2px] text-white mb-1">Exposure Safety</Text>
-                <Text className="text-2xl font-black text-white">Burn Risk</Text>
+                <Text className="text-[10px] font-black uppercase tracking-[2px] text-white mb-1">{t.exposureSafety}</Text>
+                <Text className="text-2xl font-black text-white">{t.burnRiskTitle}</Text>
               </View>
               <View className="flex-row items-center px-5 py-2.5 rounded-2xl" style={{ backgroundColor: `${burnRisk.color}20`, borderWidth: 1, borderColor: `${burnRisk.color}40` }}>
                 <Text className="text-lg mr-2">{burnRisk.emoji}</Text>
@@ -380,8 +379,8 @@ export default function WeatherScreen() {
           <GlassCard style={{ padding: 24, marginBottom: 24, borderWidth: 1, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
             <View className="mb-6 flex-row items-center justify-between">
               <View>
-                <Text className="text-base font-black tracking-[0.5px] text-white">Daily Forecast</Text>
-                <Text className="mt-0.5 text-[10px] font-bold uppercase text-white/40">24h UV Projection</Text>
+                <Text className="text-base font-black tracking-[0.5px] text-white">{t.dailyForecast}</Text>
+                <Text className="mt-0.5 text-[10px] font-bold uppercase text-white/40">{t.uvProjection}</Text>
               </View>
               <View className="flex-row items-center rounded-[10px] border border-[#FFD700]/20 bg-[#FFD700]/10 px-2.5 py-1.5">
                 <Sparkles size={10} color={COLORS.accentYellow} style={{ marginRight: 4 }} />
@@ -438,7 +437,7 @@ export default function WeatherScreen() {
                 <Zap size={18} color={COLORS.accentYellow} />
                 <Text className="mt-3 text-[22px] font-black text-white">{Math.round(weather.shortwaveRadiation)}<Text className="text-[10px]">W</Text></Text>
                 <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.solarIntensity}</Text>
-                <Text className="mt-2 text-[9px] font-bold text-accentYellow uppercase">{weather.shortwaveRadiation > 600 ? `${t.strong} • ${t.fastTan}` : (t.language === 'it' ? "Basso • Lenta" : "Low • Slow Tan")}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-accentYellow uppercase">{weather.shortwaveRadiation > 600 ? `${t.strong} • ${t.fastTan}` : t.lowSlow}</Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((weather.shortwaveRadiation / 1000) * 100, 100)}%`, backgroundColor: COLORS.accentYellow }} />
                 </View>
@@ -459,10 +458,10 @@ export default function WeatherScreen() {
                 <Dna size={18} color="#F472B6" />
                 <Text className="mt-3 text-[22px] font-black text-white">
                   {dailyVitD < 1000 ? Math.round(dailyVitD) : `${(dailyVitD / 1000).toFixed(1)}k`}
-                  <Text className="text-[10px]">{dailyVitD < 1000 ? "IU" : "IU"}</Text>
+                  <Text className="text-[10px]">{t.language === 'it' ? "UI" : "IU"}</Text>
                 </Text>
                 <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.vitaminD}</Text>
-                <Text className="mt-2 text-[9px] font-bold text-[#F472B6] uppercase">{dailyVitD > 5000 ? t.activeLoad : (t.language === 'it' ? "Assunzione Giornaliera" : "Daily Intake")}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-[#F472B6] uppercase">{dailyVitD > 5000 ? t.activeLoad : t.dailyIntake}</Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((dailyVitD / 15000) * 100, 100)}%`, backgroundColor: "#F472B6" }} />
                 </View>
@@ -471,7 +470,7 @@ export default function WeatherScreen() {
                 <Droplet size={18} color="#60A5FA" />
                 <Text className="mt-3 text-[22px] font-black text-white">{dailyFluids.toFixed(2)}L</Text>
                 <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.fluidsLost}</Text>
-                <Text className="mt-2 text-[9px] font-bold text-[#60A5FA] uppercase">{dailyFluids > 1 ? (t.language === 'it' ? "Reidratati!" : "Rehydrate!") : t.safeLevels}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-[#60A5FA] uppercase">{dailyFluids > 1 ? t.rehydrate : t.safeLevels}</Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((dailyFluids / 2.0) * 100, 100)}%`, backgroundColor: "#60A5FA" }} />
                 </View>
@@ -485,7 +484,7 @@ export default function WeatherScreen() {
                   <Text className="mt-3 text-[22px] font-black text-white">{Math.round(dailyProgress)}%</Text>
                   <Text className="text-[9px] font-black text-white uppercase tracking-[1px]">{t.dailyTanningGoal}</Text>
                 </View>
-                <Text className="mt-2 text-[9px] font-bold text-[#34D399] uppercase">{dailyProgress >= 100 ? t.goalReached : (t.language === 'it' ? "Sessione Pendente" : "Session Pending")}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-[#34D399] uppercase">{dailyProgress >= 100 ? t.goalReached : t.sessionPending}</Text>
                 <View className="mt-3 h-[4px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${dailyProgress}%`, backgroundColor: "#34D399" }} />
                 </View>
@@ -497,10 +496,10 @@ export default function WeatherScreen() {
                <View className="flex-row items-center justify-between mb-6">
                   <View className="flex-row items-center">
                     <Calendar size={18} color={COLORS.accentYellow} />
-                    <Text className="ml-3 text-base font-black text-white">Tomorrow's Strategy</Text>
+                    <Text className="ml-3 text-base font-black text-white">{t.tomorrowStrategy}</Text>
                   </View>
                   <View className="bg-accentYellow/10 border border-accentYellow/20 px-3 py-1 rounded-xl">
-                    <Text className="text-[10px] font-black text-accentYellow uppercase">Best: {strategyStart}</Text>
+                    <Text className="text-[10px] font-black text-accentYellow uppercase">{t.best}: {strategyStart}</Text>
                   </View>
                </View>
 
@@ -512,9 +511,9 @@ export default function WeatherScreen() {
                    <View className="h-12 w-12 bg-white/5 rounded-full items-center justify-center mb-4">
                      <Lock size={20} color={COLORS.accentYellow} />
                    </View>
-                   <Text className="text-white font-black text-base mb-1">{t.language === 'it' ? "Sblocca la Strategia" : "Unlock Strategy"}</Text>
+                   <Text className="text-white font-black text-base mb-1">{t.unlockStrategy}</Text>
                    <Text className="text-white/50 text-xs font-bold text-center px-4">
-                     {t.language === 'it' ? "Scopri la finestra ottimale per abbronzarti domani senza bruciarti." : "Discover the optimal window to tan tomorrow without burning."}
+                     {t.strategyDesc}
                    </Text>
                  </TouchableOpacity>
                ) : (
@@ -523,7 +522,7 @@ export default function WeatherScreen() {
                       {getWeatherIcon(tomorrowForecast?.weatherCode ?? 0, 32)}
                       <View className="ml-4">
                         <Text className="text-3xl font-black text-white">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°</Text>
-                        <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px]">Peak UV {(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text>
+                        <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px]">{t.peak} UV {(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text>
                       </View>
                     </View>
                     <View className="flex-1 ml-8 pl-6 border-l border-white/10">
@@ -531,7 +530,7 @@ export default function WeatherScreen() {
                         <View>
                           <View className="flex-row items-center mb-2">
                             <AlertTriangle size={12} color="#F97316" />
-                            <Text className="ml-2 text-[10px] font-black uppercase tracking-[1px] text-[#F97316]">Rain Alert</Text>
+                            <Text className="ml-2 text-[10px] font-black uppercase tracking-[1px] text-[#F97316]">{t.rainAlert}</Text>
                           </View>
                           <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
                             {tomorrowForecast.hasDryFallback
@@ -541,7 +540,7 @@ export default function WeatherScreen() {
                         </View>
                       ) : (
                         <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
-                          Optimal window: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>. Rain probability: <Text className="text-white font-black">{strategyRainProbability}%</Text>. Use SPF 30+.
+                          {t.optimalWindow}: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>. {t.rainProbability}: <Text className="text-white font-black">{strategyRainProbability}%</Text>. {t.useSpf} 30+.
                         </Text>
                       )}
                     </View>
@@ -557,7 +556,7 @@ export default function WeatherScreen() {
             <View className="mb-6 flex-row items-center justify-between">
               <View className="flex-row items-center">
                 <Calendar size={18} color={COLORS.accentYellow} />
-                <Text className="ml-3 text-base font-black text-white">Weekly Outlook</Text>
+                <Text className="ml-3 text-base font-black text-white">{t.weeklyOutlook}</Text>
               </View>
             </View>
             <View className="gap-2">
@@ -567,7 +566,7 @@ export default function WeatherScreen() {
                   <View className="flex-row items-center flex-[1.5] justify-center">
                     {getWeatherIcon(day.weatherCode, 20)}
                     <View className="ml-4 items-center">
-                      <Text className="text-[10px] font-black text-accentYellow uppercase tracking-[1px]">UV PEAK</Text>
+                      <Text className="text-[10px] font-black text-accentYellow uppercase tracking-[1px]">{t.uvPeak}</Text>
                       <Text className="text-sm font-black text-white">{day.uvMax.toFixed(1)}</Text>
                     </View>
                   </View>
@@ -580,10 +579,12 @@ export default function WeatherScreen() {
           </GlassCard>
         )}
 
-        {/* 6. AMBASSADOR PROGRAM */}
+        <View />
+
+        {/* Ambassador Program Section */}
         {!loading && weather && (
           <View ref={ambassadorRef}>
-            <AmbassadorCard />
+            <AmbassadorCard onPress={() => setAmbassadorVisible(true)} />
           </View>
         )}
 
@@ -615,6 +616,7 @@ export default function WeatherScreen() {
         onClose={() => setSettingsVisible(false)} 
       />
       <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
+      <AmbassadorModal visible={ambassadorVisible} onClose={() => setAmbassadorVisible(false)} />
     </GradientBackground>
   );
 }

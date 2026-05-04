@@ -13,7 +13,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { SessionRecap } from "@/components/SessionRecap";
-import { useRouter } from "expo-router";
 import { HeaderButtons } from "../../components/HeaderButtons";
 import { PremiumModal } from "../../components/PremiumModal";
 import { useAppStore, SessionHistoryItem } from "@/store/useAppStore";
@@ -21,6 +20,7 @@ import { FITZPATRICK_TYPES, COLORS, formatDuration } from "@/constants/theme";
 import { SettingsModal } from "@/components/SettingsModal";
 import { schedulePhaseEndNotification, scheduleSafetyAlert } from "@/utils/notifications";
 import { useTranslation } from "@/constants/i18n";
+import { AmbassadorModal } from "@/components/AmbassadorModal";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CHART_HEIGHT = 150;
@@ -31,27 +31,22 @@ const SPF_OPTIONS = [0, 15, 30, 50];
 export default function ProfileScreen() {
   const t = useTranslation();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const visualJourneyRef = useRef<ScrollView>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [premiumVisible, setPremiumVisible] = useState(false);
-  
-  const { 
-    skinHex, 
-    fitzpatrickLevel, 
-    currentSpf, 
-    setCurrentSpf,
-    setFitzpatrickLevel,
-    setSkinHex,
-    resetProfile,
-    history,
-    updateHistoryItemData,
-    dailyGoalMinutes,
-    setDailyGoalMinutes,
-    vitDGoalIU,
-    hasPremium
-  } = useAppStore();
+  const [ambassadorVisible, setAmbassadorVisible] = useState(false);
+  const skinHex = useAppStore(s => s.skinHex);
+  const setSkinHex = useAppStore(s => s.setSkinHex);
+  const fitzpatrickLevel = useAppStore(s => s.fitzpatrickLevel);
+  const setFitzpatrickLevel = useAppStore(s => s.setFitzpatrickLevel);
+  const currentSpf = useAppStore(s => s.currentSpf);
+  const history = useAppStore(s => s.history);
+  const updateHistoryItemData = useAppStore(s => s.updateHistoryItemData);
+  const dailyGoalMinutes = useAppStore(s => s.dailyGoalMinutes);
+  const vitDGoalIU = useAppStore(s => s.vitDGoalIU);
+  const hasPremium = useAppStore(s => s.hasPremium);
+  const resetProfile = useAppStore(s => s.resetProfile);
 
   const weeklyVitD = useMemo(() => {
     return history
@@ -165,7 +160,7 @@ export default function ProfileScreen() {
         {/* Header */}
         <View className="mb-8 flex-row items-center justify-between">
           <View>
-            <Text className="text-[32px] font-black tracking-[-1px] text-white">{t.myStudio}</Text>
+            <Text className="text-[24px] font-black tracking-[-0.5px] text-white">{t.myStudio}</Text>
             <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
               {streak > 0 ? `${streak} ${t.dayStreak} 🔥` : t.startJourney}
             </Text>
@@ -173,7 +168,7 @@ export default function ProfileScreen() {
 
           <View className="flex-row items-center gap-2">
             <HeaderButtons 
-              onEarnPress={() => router.push(`/(tabs)/weather?scrollToAmbassador=${Date.now()}`)}
+              onPartnerPress={() => setAmbassadorVisible(true)}
               onProPress={() => setPremiumVisible(true)}
             />
             
@@ -189,60 +184,7 @@ export default function ProfileScreen() {
 
         <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
 
-        <View className="mb-12">
-          <View className="mb-6 flex-row items-center justify-between">
-            <View className="flex-row items-center">
-               <HistoryIcon size={20} color={COLORS.accentYellow} />
-               <Text className="ml-3 text-xl font-black text-white">{t.referralProgram}</Text>
-            </View>
-            <View className="bg-accentYellow/10 px-3 py-1 rounded-lg border border-accentYellow/20">
-               <Text className="text-[10px] font-black text-accentYellow uppercase">Active</Text>
-            </View>
-          </View>
-
-          <GlassCard style={{ padding: 24, borderRadius: 44, borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.8)", borderColor: "rgba(255,255,255,0.15)" }}>
-            <Text className="text-sm font-bold text-white/70 mb-6 leading-5">
-              {t.language === 'it' 
-                ? "Invita i tuoi contatti. Riceverai un aggiornamento sui tuoi guadagni ogni lunedì via email." 
-                : "Invite your contacts. You will receive an update on your earnings every Monday via email."}
-            </Text>
-
-            <View className="mb-6">
-               <Text className="text-[10px] font-black text-white/40 uppercase tracking-[2px] mb-3">Add Contact</Text>
-               <View className="flex-row items-center bg-white/5 border border-white/10 rounded-2xl px-4 h-14">
-                  <Bell size={18} color="rgba(255,255,255,0.3)" />
-                  <Text className="ml-3 text-white/30 flex-1">email@example.com</Text>
-                  <TouchableOpacity className="bg-accentYellow px-4 py-2 rounded-xl">
-                    <Text className="text-[10px] font-black text-black uppercase">Invite</Text>
-                  </TouchableOpacity>
-               </View>
-            </View>
-
-            <View className="flex-row items-center mb-8">
-               <TouchableOpacity className="h-6 w-6 rounded-md border border-white/20 bg-white/5 items-center justify-center mr-3">
-                  <Check size={14} color={COLORS.accentYellow} />
-               </TouchableOpacity>
-               <Text className="text-[11px] font-bold text-white/50 flex-1">
-                 {t.language === 'it' 
-                   ? "Dichiaro di essere maggiorenne e accetto i termini di collaborazione." 
-                   : "I declare that I am of legal age and I accept the collaboration terms."}
-               </Text>
-            </View>
-
-            <View className="flex-row justify-between border-t border-white/5 pt-6">
-               <View>
-                  <Text className="text-[24px] font-black text-white">{history.length > 0 ? 5 : 0}</Text>
-                  <Text className="text-[9px] font-black text-white/30 uppercase tracking-[1px]">{t.totalReferrals}</Text>
-               </View>
-               <View className="items-end">
-                  <View className="flex-row items-center bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
-                    <Clock size={12} color="white" opacity={0.5} />
-                    <Text className="ml-2 text-[10px] font-black text-white/50 uppercase">Update: Monday</Text>
-                  </View>
-               </View>
-            </View>
-          </GlassCard>
-        </View>
+        <View />
 
         {/* 1. VISUAL JOURNEY (STACKED POLAROIDS) */}
         <View className="mb-10">
@@ -314,12 +256,12 @@ export default function ProfileScreen() {
 
         {/* 2. QUICK SETTINGS (SPF & TONE) */}
         <View className="mb-12">
-          <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
+          <GlassCard style={{ padding: 22, borderRadius: 32, width: "100%", backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
             <View className="mb-8">
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center">
                    <Shield size={18} color={COLORS.accentOrange} />
-                   <Text className="ml-3 text-lg font-black text-white">Skin Guard</Text>
+                   <Text className="ml-3 text-lg font-black text-white">{t.skinHealth}</Text>
                 </View>
                 <View className="bg-accentOrange/20 px-3 py-1 rounded-lg border border-accentOrange/30">
                   <Text className="text-[10px] font-black text-accentOrange">SPF {currentSpf}</Text>
@@ -331,8 +273,14 @@ export default function ProfileScreen() {
                   {SPF_OPTIONS.map((spf) => (
                     <TouchableOpacity
                       key={spf}
-                      onPress={() => setCurrentSpf(spf)}
-                      className={`h-11 px-5 rounded-xl items-center justify-center border ${currentSpf === spf ? 'border-accentOrange bg-accentOrange' : 'border-white/10 bg-white/5'}`}
+                      onPress={() => {
+                        useAppStore.getState().setCurrentSpf(spf);
+                      }}
+                      style={{
+                        backgroundColor: currentSpf === spf ? COLORS.accentOrange : "rgba(255,255,255,0.05)",
+                        borderColor: currentSpf === spf ? COLORS.accentOrange : "rgba(255,255,255,0.1)",
+                      }}
+                      className="h-11 px-5 rounded-xl items-center justify-center border"
                     >
                       <Text className={`text-[11px] font-black ${currentSpf === spf ? 'text-black' : 'text-white/40'}`}>
                         {spf === 0 ? "OFF" : `SPF ${spf}`}
@@ -347,7 +295,7 @@ export default function ProfileScreen() {
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center">
                    <Clock size={18} color={COLORS.accentYellow} />
-                   <Text className="ml-3 text-lg font-black text-white">Daily Goal</Text>
+                   <Text className="ml-3 text-lg font-black text-white">{t.dailyTanningGoal}</Text>
                 </View>
                 <View className="bg-accentYellow/20 px-3 py-1 rounded-lg border border-accentYellow/30">
                   <Text className="text-[10px] font-black text-accentYellow">{dailyGoalMinutes} MIN</Text>
@@ -359,11 +307,17 @@ export default function ProfileScreen() {
                   {GOAL_OPTIONS.map((min) => (
                     <TouchableOpacity
                       key={min}
-                      onPress={() => setDailyGoalMinutes(min)}
-                      className={`h-11 px-5 rounded-xl items-center justify-center border ${dailyGoalMinutes === min ? 'border-accentYellow bg-accentYellow' : 'border-white/10 bg-white/5'}`}
+                      onPress={() => {
+                        useAppStore.getState().setDailyGoalMinutes(min);
+                      }}
+                      style={{
+                        backgroundColor: dailyGoalMinutes === min ? COLORS.accentYellow : "rgba(255,255,255,0.05)",
+                        borderColor: dailyGoalMinutes === min ? COLORS.accentYellow : "rgba(255,255,255,0.1)",
+                      }}
+                      className="h-16 px-8 rounded-[24px] items-center justify-center border"
                     >
-                      <Text className={`text-[11px] font-black ${dailyGoalMinutes === min ? 'text-black' : 'text-white/40'}`}>
-                        {min} MIN
+                      <Text className={`text-[17px] font-black ${dailyGoalMinutes === min ? 'text-black' : 'text-white/40'}`}>
+                        {min}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -375,10 +329,10 @@ export default function ProfileScreen() {
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center">
                    <Zap size={18} color={COLORS.accentYellow} />
-                   <Text className="ml-3 text-lg font-black text-white">Skin Type</Text>
+                   <Text className="ml-3 text-lg font-black text-white">{t.yourSkinTone}</Text>
                 </View>
                 <View className="bg-white/10 px-3 py-1 rounded-lg border border-white/20">
-                  <Text className="text-[10px] font-black text-white">TIMER BASE</Text>
+                  <Text className="text-[10px] font-black text-white">{t.language === 'it' ? "TEMPO BASE" : "BASE TIMER"}</Text>
                 </View>
               </View>
               
@@ -459,14 +413,14 @@ export default function ProfileScreen() {
                       <View className="h-8 w-8 rounded-full bg-accentYellow/10 items-center justify-center mb-2">
                         <Zap size={14} color={COLORS.accentYellow} />
                       </View>
-                      <Text className="text-[10px] font-black uppercase tracking-[1.5px] text-white/40 mb-1">{t.doseTrend}</Text>
+                      <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-1 text-center">{t.efficiencyTrend}</Text>
                       <Text className="text-[15px] font-black text-accentYellow text-center">{t.optimal}</Text>
                    </View>
                    <View className="flex-1 items-center px-2">
                       <View className="h-8 w-8 rounded-full bg-accentOrange/10 items-center justify-center mb-2">
                         <Shield size={14} color={COLORS.accentOrange} />
                       </View>
-                      <Text className="text-[10px] font-black uppercase tracking-[1.5px] text-white/40 mb-1">{t.skinHealth}</Text>
+                      <Text className="text-[10px] font-black uppercase tracking-[1.5px] text-white/40 mb-1 text-center">{t.skinHealth}</Text>
                       <Text className="text-[15px] font-black text-accentOrange text-center">98% {t.recovered}</Text>
                    </View>
                 </View>
@@ -490,20 +444,20 @@ export default function ProfileScreen() {
               <Text className="ml-3 text-xl font-black text-white">{t.biometricsVault}</Text>
             </View>
             <View className="bg-white/10 px-3 py-1 rounded-lg border border-white/20">
-              <Text className="text-[10px] font-black text-white">PREMIUM</Text>
+              <Text className="text-[10px] font-black text-white">PRO</Text>
             </View>
           </View>
 
           <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
             {/* Vitamin D Section */}
             <View className="mb-8">
-              <View className="flex-row items-center justify-between mb-4">
-                 <View className="flex-row items-center">
-                    <Sun size={16} color={COLORS.accentYellow} />
-                    <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">{t.vitDSynthesis}</Text>
-                 </View>
-                 <Text className="text-[11px] font-black text-accentYellow">{vitDGoalIU > 0 ? Math.round((weeklyVitD / vitDGoalIU) * 100) : 0}% {t.ofGoal}</Text>
-              </View>
+               <View className="mb-4">
+                  <View className="flex-row items-center mb-1.5">
+                     <Sun size={16} color={COLORS.accentYellow} />
+                     <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">{t.vitDSynthesis}</Text>
+                  </View>
+                  <Text className="text-[13px] font-black text-accentYellow">{vitDGoalIU > 0 ? Math.round((weeklyVitD / vitDGoalIU) * 100) : 0}% {t.ofGoal}</Text>
+               </View>
               <View className="h-4 w-full bg-white/10 rounded-full overflow-hidden mb-3">
                  <LinearGradient
                     colors={['#FACC15', '#FB923C']}
@@ -511,7 +465,7 @@ export default function ProfileScreen() {
                     style={{ width: `${Math.min(100, vitDGoalIU > 0 ? (weeklyVitD / vitDGoalIU) * 100 : 0)}%`, height: '100%' }}
                  />
               </View>
-              <Text className="text-right text-[10px] font-bold text-white/40 uppercase tracking-[1px]">{weeklyVitD.toLocaleString()} / {vitDGoalIU.toLocaleString()} IU</Text>
+              <Text className="text-right text-[10px] font-bold text-white/40 uppercase tracking-[1px]">{weeklyVitD.toLocaleString()} / {vitDGoalIU.toLocaleString()} {t.language === 'it' ? "UI" : "IU"}</Text>
             </View>
 
             {/* Tone Evolution Section */}
@@ -519,14 +473,14 @@ export default function ProfileScreen() {
               <View className="flex-row items-center justify-between mb-4">
                  <View className="flex-row items-center">
                     <Check size={16} color={COLORS.accentOrange} />
-                    <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">Tone Evolution</Text>
+                    <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">{t.toneEvolution}</Text>
                  </View>
-                 <Text className="text-[11px] font-black text-accentOrange">Baseline vs Current</Text>
+                 <Text className="text-[11px] font-black text-accentOrange">{t.baselineVsCurrent}</Text>
               </View>
               <View className="flex-row items-center justify-between bg-white/5 p-4 rounded-3xl border border-white/10">
                  <View className="items-center">
                     <View className="h-12 w-12 rounded-full border-2 border-white/20 mb-2" style={{ backgroundColor: toneStart }} />
-                    <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-white/40">Baseline</Text>
+                    <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-white/40">{t.baseline}</Text>
                  </View>
                  
                  <View className="flex-1 items-center px-4">
@@ -537,12 +491,12 @@ export default function ProfileScreen() {
                           style={{ width: '100%', height: '100%' }}
                        />
                     </View>
-                    <Text className="mt-3 text-[10px] font-black uppercase tracking-[2px] text-white/60">Progression</Text>
+                    <Text className="mt-3 text-[10px] font-black uppercase tracking-[2px] text-white/40">{t.progression}</Text>
                  </View>
 
                  <View className="items-center">
                     <View className="h-12 w-12 rounded-full border-2 border-accentYellow mb-2" style={{ backgroundColor: toneEnd }} />
-                    <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-accentYellow">Current</Text>
+                    <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-accentYellow">{t.currentLabel}</Text>
                  </View>
               </View>
             </View>
@@ -629,7 +583,7 @@ export default function ProfileScreen() {
             className="mt-6 flex-row items-center justify-center bg-white/5 border border-accentYellow/20 p-4 rounded-2xl"
           >
              <Lock size={16} color={COLORS.accentYellow} />
-             <Text className="ml-2 text-white/70 font-bold text-[10px] uppercase tracking-[1px]">{t.language === 'it' ? "Sblocca tutto lo storico con Premium" : "Unlock full history with Premium"}</Text>
+             <Text className="ml-2 text-white/70 font-bold text-[10px] uppercase tracking-[1px]">{t.unlockHistory}</Text>
           </TouchableOpacity>
         )}
 
@@ -661,6 +615,7 @@ export default function ProfileScreen() {
         visible={settingsVisible} 
         onClose={() => setSettingsVisible(false)} 
       />
+      <AmbassadorModal visible={ambassadorVisible} onClose={() => setAmbassadorVisible(false)} />
     </GradientBackground>
   );
 }

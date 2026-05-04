@@ -156,7 +156,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                   <SettingRow 
                     icon={Dna} 
                     label={t.vitaminDGoal} 
-                    value={`${vitDGoalIU / 1000}k IU`} 
+                    value={`${vitDGoalIU / 1000}k ${t.language === 'it' ? "UI" : "IU"}`} 
                     onPress={() => setVitDGoalIU(vitDGoalIU >= 30000 ? 5000 : vitDGoalIU + 5000)}
                   />
                 </GlassCard>
@@ -166,12 +166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
               <View className="mt-6 mb-4">
                 <Text className="text-[10px] font-black text-white uppercase tracking-[2px] mb-4">{t.community}</Text>
                 <GlassCard style={{ borderRadius: 32, padding: 20, backgroundColor: "rgba(0,0,0,0.7)", borderWidth: 1.5, borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
-                  <SettingRow 
-                    icon={Gift} 
-                    label={t.referralCode} 
-                    value="SUN20" 
-                    onPress={handleInvite}
-                  />
+
                   <SettingRow 
                     icon={Heart} 
                     label={t.inviteFriends} 

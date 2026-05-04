@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Modal, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { 
@@ -20,6 +20,7 @@ import { COLORS, FITZPATRICK_TYPES, formatDuration, getUvBand } from "@/constant
 import Svg, { Circle } from "react-native-svg";
 import { useTranslation } from "@/constants/i18n";
 import { SettingsModal } from "@/components/SettingsModal";
+import { AmbassadorModal } from "@/components/AmbassadorModal";
 
 type CoachIntensity = "gentle" | "balanced" | "strong";
 
@@ -114,16 +115,6 @@ const deriveCoachPlan = (params: {
   };
 };
 
-const getPhaseSuggestion = (type: string, t: any) => {
-  switch (type) {
-    case "sunscreen": return t.language === 'it' ? "Applica generosamente e uniformemente. Non dimenticare orecchie e collo!" : "Apply generously and evenly. Don't forget ears and neck!";
-    case "front": return t.language === 'it' ? "Sdraiati sulla schiena, rilassati e proteggi gli occhi." : "Lie on your back, relax and keep your eyes protected.";
-    case "back": return t.language === 'it' ? "Sdraiati sulla pancia. Assicurati che le spalle siano esposte." : "Lie on your stomach. Ensure your shoulders are exposed.";
-    case "hydration": return t.language === 'it' ? "È ora di bere un po' d'acqua! Rimanere idratati aiuta l'abbronzatura." : "Time to drink some water! Staying hydrated helps your tan.";
-    default: return t.language === 'it' ? "Goditi il sole responsabilmente e segui il timer." : "Enjoy the sun responsibly and follow the timer.";
-  }
-};
-
 const MiniProgress = ({ progress, isActive, isCompleted, onPress }: { progress: number, isActive: boolean, isCompleted: boolean, onPress: () => void }) => {
   const size = 52;
   const strokeWidth = 4;
@@ -176,18 +167,13 @@ export default function TrackerScreen() {
   const router = useRouter();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [premiumVisible, setPremiumVisible] = useState(false);
+  const [ambassadorVisible, setAmbassadorVisible] = useState(false);
   const [coachCustomizerVisible, setCoachCustomizerVisible] = useState(false);
   const [coachCustomizerTarget, setCoachCustomizerTarget] = useState<"skin" | "uv" | "time" | "cycles" | "cream" | "intensity">("time");
 
   const getUvLabel = (label: string) => {
     const key = label.toLowerCase().replace(" ", "") as keyof typeof t;
     return (t as any)[key] || label;
-  };
-
-  const getPhaseSuggestion = (type: string) => {
-    if (type === "front") return t.suggestionFront;
-    if (type === "back") return t.suggestionBack;
-    return t.suggestionSide;
   };
   
   const {
@@ -209,17 +195,24 @@ export default function TrackerScreen() {
     tick,
     addSessionToHistory,
     dailyGoalMinutes,
-    hasPremium
+    hasPremium,
+    history,
+    vitDGoalIU
   } = useAppStore();
+
+  const weeklyVitD = useMemo(() => {
+    return history
+      .filter(s => (new Date().getTime() - new Date(s.date).getTime()) <= 7 * 24 * 60 * 60 * 1000)
+      .reduce((acc, s) => acc + (s.vitD || 0), 0);
+  }, [history]);
 
   const [localMode, setLocalMode] = useState<EngineMode>("personal");
   const [personalMinutes, setPersonalMinutes] = useState(dailyGoalMinutes || 20);
-  const [coachMinutes, setCoachMinutes] = useState(20); // Scientific baseline
+  const [coachMinutes, setCoachMinutes] = useState(20);
   const [coachSkinLevel, setCoachSkinLevel] = useState(fitzpatrickLevel || 1);
   const [coachCreamSpf, setCoachCreamSpf] = useState(currentSpf);
   const [coachIntensity, setCoachIntensity] = useState<CoachIntensity>("balanced");
 
-  // Sync with global store changes (e.g. from Profile)
   useEffect(() => {
     setCoachSkinLevel(fitzpatrickLevel || 1);
   }, [fitzpatrickLevel]);
@@ -251,7 +244,6 @@ export default function TrackerScreen() {
   const coachCycles = coachPlan.cycles;
   const coachRotationMinutes = coachPlan.minutesPerCycle;
 
-  // Sync tick
   useEffect(() => {
     let interval: any = null;
     if (isSessionActive) {
@@ -297,22 +289,19 @@ export default function TrackerScreen() {
     totalElapsedSeconds += (currentPhase.duration - sessionTimeRemaining);
   }
 
-  // ── Vitamin D & Sweat Calculation ─────────────────────────────────────────
   const getVitDEfficiency = (level: number) => {
-    // Multipliers for Vitamin D synthesis efficiency based on Fitzpatrick skin type
     const factors: Record<number, number> = {
-      1: 1.2,   // Very fair
-      2: 1.0,   // Fair (Baseline)
-      3: 0.7,   // Medium
-      4: 0.4,   // Olive/Brown
-      5: 0.25,  // Dark Brown
-      6: 0.15,  // Black
+      1: 1.2,
+      2: 1.0,
+      3: 0.7,
+      4: 0.4,
+      5: 0.25,
+      6: 0.15,
     };
     return factors[level] || 0.7;
   };
 
   const skinEfficiency = getVitDEfficiency(coachSkinLevel);
-  // Base rate: 25 IU per minute per UV index unit for Type 2 skin
   const vitD = Math.floor((totalElapsedSeconds / 60) * (cachedCurrentUv * 25 * skinEfficiency)); 
   const sweatMl = Math.floor((totalElapsedSeconds / 60) * 16.6); 
 
@@ -330,14 +319,14 @@ export default function TrackerScreen() {
       >
         <View className="mb-10 w-full flex-row items-center justify-between">
           <View className="flex-1 pr-3 items-start">
-            <Text className="text-[32px] font-black tracking-[-1px] text-white">{t.smartTracker}</Text>
+            <Text className="text-[24px] font-black tracking-[-0.5px] text-white">{t.tracker}</Text>
             <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
               {isSessionActive ? t.activeSession : (t.language === 'it' ? "Pronto a splendere" : "Ready to Glow")}
             </Text>
           </View>
           <View className="flex-row items-center gap-2">
             <HeaderButtons 
-              onEarnPress={() => router.push(`/(tabs)/weather?scrollToAmbassador=${Date.now()}`)}
+              onPartnerPress={() => setAmbassadorVisible(true)}
               onProPress={() => setPremiumVisible(true)}
             />
             <TouchableOpacity 
@@ -350,14 +339,8 @@ export default function TrackerScreen() {
         </View>
 
         <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
+        <AmbassadorModal visible={ambassadorVisible} onClose={() => setAmbassadorVisible(false)} />
 
-        {!isDone && (
-          <View className="mb-2.5 self-start w-full">
-            {/* Subtitle removed per request - cleaned UI */}
-          </View>
-        )}
-
-        {/* We only show the inline TimerRing if we are idle or done. If active, it's inside the modal. */}
         {(isIdle || isDone) && (
           <View className="items-center justify-center w-full my-3">
             <TimerRing 
@@ -548,16 +531,14 @@ export default function TrackerScreen() {
         )}
       </ScrollView>
 
-      {/* Active Session Fullscreen Modal */}
       <Modal visible={!isIdle && !isDone} animationType="slide" transparent>
         <View className="flex-1 bg-black">
           <GradientBackground>
             <View className="flex-1 px-6" style={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }}>
               <View className="flex-row justify-center items-center mb-6">
-                <Text className="text-xl font-black text-white uppercase tracking-[1px]">{t.activeSession}</Text>
+                <Text className="text-right text-[10px] font-bold text-white/40 uppercase tracking-[1px]">{weeklyVitD.toLocaleString()} / {vitDGoalIU.toLocaleString()} {t.language === 'it' ? "UI" : "IU"}</Text>
               </View>
 
-              {/* Central Timer Ring */}
               <View className="items-center justify-center w-full mb-8 mt-2">
                 <TimerRing 
                   progress={sessionTimeRemaining / (currentPhase?.duration || 1)}
@@ -568,11 +549,10 @@ export default function TrackerScreen() {
                   size={240}
                 />
                 
-                {/* Live Stats Row */}
                 <View className="flex-row items-center gap-4 mt-6">
                   <View className="flex-row items-center bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl">
                     <Sun size={14} color={COLORS.accentYellow} />
-                    <Text className="ml-2 text-[13px] font-black text-white">{vitD} <Text className="text-[10px] text-white/50">IU</Text></Text>
+                    <Text className="ml-2 text-[13px] font-black text-white">{vitD} <Text className="text-[10px] text-white/50">{t.language === 'it' ? "UI" : "IU"}</Text></Text>
                   </View>
                   <View className="flex-row items-center bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl">
                     <Droplet size={14} color="#60A5FA" />
@@ -615,7 +595,11 @@ export default function TrackerScreen() {
                               <Text className={`text-[17px] font-black ${isActive ? 'text-white' : 'text-white/60'}`}>{phase.label}</Text>
                               {isActive && (
                                 <Text className="text-[10px] font-bold text-accentYellow uppercase tracking-[1px] mt-1.5 leading-[14px]">
-                                  {getPhaseSuggestion(phase.type)}
+                                  {(() => {
+                                    if (phase.type === "front") return t.suggestionFront;
+                                    if (phase.type === "back") return t.suggestionBack;
+                                    return t.suggestionSide;
+                                  })()}
                                 </Text>
                               )}
                             </View>
@@ -668,9 +652,9 @@ export default function TrackerScreen() {
           <View className="rounded-t-[36px] bg-[#090909] border-t border-white/10 p-6" style={{ maxHeight: '85%' }} onStartShouldSetResponder={() => true}>
             <View className="flex-row items-center justify-between mb-5">
               <View>
-                <Text className="text-[28px] font-black tracking-[-1px] text-white">Customize Coach</Text>
+                <Text className="text-[28px] font-black tracking-[-1px] text-white">{t.customizeCoach}</Text>
                 <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
-                  {coachCustomizerTarget === "skin" ? "Skin Type" : coachCustomizerTarget === "uv" ? "Current UV" : coachCustomizerTarget === "time" ? "Session Time" : coachCustomizerTarget === "cycles" ? "Cycle" : coachCustomizerTarget === "cream" ? "Cream Type" : "Intensity"}
+                  {coachCustomizerTarget === "skin" ? t.yourSkinTone : coachCustomizerTarget === "uv" ? t.currentUv : coachCustomizerTarget === "time" ? t.sessionTime : coachCustomizerTarget === "cycles" ? t.cycles : coachCustomizerTarget === "cream" ? t.creamType : t.intensityLabel}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setCoachCustomizerVisible(false)} className="h-10 w-10 items-center justify-center rounded-full bg-white/10">
@@ -681,7 +665,7 @@ export default function TrackerScreen() {
             <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingHorizontal: 6, paddingBottom: 40 }}>
 
             <View className="mb-5 rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">Session Time</Text>
+              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">{t.sessionTime}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={{ paddingVertical: 4, paddingHorizontal: 6 }}>
                 {[-5, -2, 2, 5, 10].map((delta) => (
                   <TouchableOpacity
@@ -705,7 +689,7 @@ export default function TrackerScreen() {
             </View>
 
             <View className="mb-5 rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">Skin Type</Text>
+              <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-3">{t.yourSkinTone}</Text>
               <View className="flex-row flex-wrap gap-2">
                 {FITZPATRICK_TYPES.map((type) => {
                   const active = coachSkinLevel === type.level;

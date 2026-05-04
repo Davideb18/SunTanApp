@@ -25,9 +25,9 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     <View className="absolute bottom-0 left-0 right-0 z-[1000] items-center" style={{ paddingBottom: insets.bottom + 4 }}>
       
       {/* THE FLOATING GLASS BAR (ONLY ELEMENT) */}
-      <View className="items-center" style={{ width: TAB_BAR_WIDTH, height: TAB_BAR_HEIGHT + 35, marginBottom: 0 }}>
+      <View className="items-center" style={{ width: TAB_BAR_WIDTH, height: TAB_BAR_HEIGHT + 40, marginBottom: 0 }}>
         <View className="absolute inset-0 z-[-1]">
-          <Svg width={TAB_BAR_WIDTH + 4} height={TAB_BAR_HEIGHT + 35} viewBox={`0 0 ${TAB_BAR_WIDTH + 4} ${TAB_BAR_HEIGHT + 35}`} style={{ marginLeft: -2 }}>
+          <Svg width={TAB_BAR_WIDTH + 4} height={TAB_BAR_HEIGHT + 40} viewBox={`0 0 ${TAB_BAR_WIDTH + 4} ${TAB_BAR_HEIGHT + 40}`} style={{ marginLeft: -2 }}>
             <Defs>
               <LinearGradient id="tabBarGradient" x1="0" y1="0" x2="1" y2="0">
                 <Stop offset="0" stopColor={COLORS.accentRed} />
@@ -36,18 +36,18 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             </Defs>
             <Path
               d={`
-                M 26,30
+                M 26,34
                 H ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS - 13}
-                C ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS + 2},30 ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS + 2},0 ${TAB_BAR_WIDTH / 2 + 2},0
-                C ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 2},0 ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 2},30 ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 17},30
+                C ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS + 2},34 ${TAB_BAR_WIDTH / 2 - HUMP_RADIUS + 2},4 ${TAB_BAR_WIDTH / 2 + 2},4
+                C ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 2},4 ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 2},34 ${TAB_BAR_WIDTH / 2 + HUMP_RADIUS + 17},34
                 H ${TAB_BAR_WIDTH - 22}
-                A 24,24 0 0 1 ${TAB_BAR_WIDTH + 2},54
-                V ${TAB_BAR_HEIGHT + 6}
-                A 24,24 0 0 1 ${TAB_BAR_WIDTH - 22},${TAB_BAR_HEIGHT + 30}
+                A 24,24 0 0 1 ${TAB_BAR_WIDTH + 2},58
+                V ${TAB_BAR_HEIGHT + 10}
+                A 24,24 0 0 1 ${TAB_BAR_WIDTH - 22},${TAB_BAR_HEIGHT + 34}
                 H 26
-                A 24,24 0 0 1 2,${TAB_BAR_HEIGHT + 6}
-                V 54
-                A 24,24 0 0 1 26,30
+                A 24,24 0 0 1 2,${TAB_BAR_HEIGHT + 10}
+                V 58
+                A 24,24 0 0 1 26,34
                 Z
               `}
               fill="url(#tabBarGradient)" 
@@ -58,7 +58,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         </View>
 
         {/* ITEMS LAYER */}
-        <View className="h-full w-full flex-row items-end justify-between px-2 pb-4">
+        <View className="h-full w-full flex-row items-end justify-between px-2 pb-5">
           {state.routes.map((_, index) => {
             const route = state.routes[index];
             const isFocused = state.index === index;

@@ -4,21 +4,21 @@ import { COLORS } from "@/constants/theme";
 import { useTranslation } from "@/constants/i18n";
 
 interface HeaderButtonsProps {
-  onEarnPress: () => void;
+  onPartnerPress: () => void;
   onProPress: () => void;
 }
 
-export const HeaderButtons = ({ onEarnPress, onProPress }: HeaderButtonsProps) => {
+export const HeaderButtons = ({ onPartnerPress, onProPress }: HeaderButtonsProps) => {
   const t = useTranslation();
   
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <TouchableOpacity 
-        onPress={onEarnPress}
+        onPress={onPartnerPress}
         style={{
           height: 40,
-          minWidth: 72,
-          paddingHorizontal: 14,
+          minWidth: 44,
+          paddingHorizontal: 8,
           borderRadius: 12,
           borderWidth: 1,
           borderColor: 'rgba(255,255,255,0.28)',
@@ -31,7 +31,7 @@ export const HeaderButtons = ({ onEarnPress, onProPress }: HeaderButtonsProps) =
           elevation: 4
         }}
       >
-        <Text style={{ fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: -0.3, textAlign: 'center' }}>{t.earn}</Text>
+        <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff', textAlign: 'center' }}>💰</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 

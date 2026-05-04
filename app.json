@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.glowy.app",
+      "bundleIdentifier": "com.davideberno.glowy",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Glowy usa la tua posizione per mostrarti l'indice UV della tua zona.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Glowy usa la tua posizione per monitorare l'indice UV e proteggere la tua pelle.",
@@ -27,7 +27,7 @@
         "backgroundColor": "#000000"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.glowy.app",
+      "package": "com.davideberno.glowy",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION"

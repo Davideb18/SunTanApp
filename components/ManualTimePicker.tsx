@@ -1,8 +1,8 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { COLORS } from "@/constants/theme";
 
-const ITEM_HEIGHT = 40;
+const ITEM_HEIGHT = 60;
 const VISIBLE_ITEMS = 3;
 const CONTAINER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
 
@@ -17,6 +17,16 @@ export function ManualTimePicker({ value, onChange }: Props) {
 
   // null items as padding so first/last real item can be centered
   const data: (number | null)[] = [null, ...options, null];
+
+  useEffect(() => {
+    // Scroll to initial value
+    const index = options.findIndex((opt) => opt === value);
+    if (index >= 0) {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
+      }, 50);
+    }
+  }, []);
 
   const renderItem = ({ item, index }: { item: number | null; index: number }) => {
     if (item === null) return <View style={{ height: ITEM_HEIGHT, width: "100%" }} />;
@@ -45,9 +55,9 @@ export function ManualTimePicker({ value, onChange }: Props) {
       >
         <Text
           style={{
-            fontSize: isSelected ? 26 : 18,
+            fontSize: isSelected ? 30 : 25,
             fontWeight: "900",
-            color: isSelected ? COLORS.Yellow : "#FFFFFF",
+            color: isSelected ? COLORS.accentYellow : "#FFFFFF",
             textAlign: "center",
           }}
         >
@@ -55,12 +65,12 @@ export function ManualTimePicker({ value, onChange }: Props) {
         </Text>
         <Text
           style={{
-            fontSize: 7,
+            fontSize: 9,
             fontWeight: "900",
-            letterSpacing: 0.5,
+            letterSpacing: 1,
             marginTop: -2,
             textAlign: "center",
-            color: isSelected ? COLORS.accentYellow : "rgba(255,255,255,0.4)",
+            color: isSelected ? COLORS.accentYellow : "rgb(255,255,255)",
             opacity: isSelected ? 0.8 : 1,
           }}
         >
@@ -106,9 +116,9 @@ export function ManualTimePicker({ value, onChange }: Props) {
             left: 0,
             right: 0,
             height: ITEM_HEIGHT,
-            borderTopWidth: 1,
-            borderBottomWidth: 1,
-            borderColor: "rgba(255,222,0,0.3)",
+            borderTopWidth: 1.5,
+            borderBottomWidth: 1.5,
+            borderColor: "rgba(255, 222, 0, 0.4)",
           }}
         />
       </View>
