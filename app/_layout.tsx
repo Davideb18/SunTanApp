@@ -10,9 +10,17 @@ import { setupNotifications } from "../utils/notifications";
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import { useAppStore } from "../store/useAppStore";
+import { PremiumModal } from "@/components/PremiumModal";
+import { AmbassadorModal } from "@/components/AmbassadorModal";
 import "../global.css";
 
 export default function RootLayout() {
+  const premiumVisible = useAppStore((s) => s.premiumVisible);
+  const setPremiumVisible = useAppStore((s) => s.setPremiumVisible);
+  const ambassadorVisible = useAppStore((s) => s.ambassadorVisible);
+  const setAmbassadorVisible = useAppStore((s) => s.setAmbassadorVisible);
+
   useEffect(() => {
     setupNotifications();
     
@@ -56,6 +64,15 @@ export default function RootLayout() {
             }}
           />
         </Stack>
+
+        <PremiumModal
+          visible={premiumVisible}
+          onClose={() => setPremiumVisible(false)}
+        />
+        <AmbassadorModal
+          visible={ambassadorVisible}
+          onClose={() => setAmbassadorVisible(false)}
+        />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

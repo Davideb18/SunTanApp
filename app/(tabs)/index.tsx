@@ -166,8 +166,8 @@ export default function TrackerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [premiumVisible, setPremiumVisible] = useState(false);
-  const [ambassadorVisible, setAmbassadorVisible] = useState(false);
+  const setPremiumVisible = useAppStore((s) => s.setPremiumVisible);
+  const setAmbassadorVisible = useAppStore((s) => s.setAmbassadorVisible);
   const [coachCustomizerVisible, setCoachCustomizerVisible] = useState(false);
   const [coachCustomizerTarget, setCoachCustomizerTarget] = useState<"skin" | "uv" | "time" | "cycles" | "cream" | "intensity">("time");
 
@@ -338,8 +338,6 @@ export default function TrackerScreen() {
           </View>
         </View>
 
-        <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
-        <AmbassadorModal visible={ambassadorVisible} onClose={() => setAmbassadorVisible(false)} />
 
         {(isIdle || isDone) && (
           <View className="items-center justify-center w-full my-3">

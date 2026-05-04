@@ -37,17 +37,19 @@ interface PremiumModalProps {
 const FeatureItem = ({ title, icon, children, isExpanded, onToggle }: any) => {
   return (
     <View className={`mb-3 overflow-hidden rounded-[28px] border-2 ${isExpanded ? 'border-white bg-white/15' : 'border-white/20 bg-white/5'}`}>
-      <TouchableOpacity 
+      <Pressable 
         onPress={onToggle}
-        activeOpacity={0.8}
         className="flex-row items-center p-5 justify-between"
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.8 : 1
+        })}
       >
         <View className="flex-row items-center flex-1">
           <View className="h-11 w-11 bg-white rounded-2xl items-center justify-center mr-4 shadow-xl">
-            {React.cloneElement(icon as React.ReactElement, { 
+            {React.cloneElement(icon as React.ReactElement<{ size?: number; color?: string; fill?: string }>, { 
               size: 20, 
               color: 'black',
-              fill: icon.props.fill ? 'black' : 'none'
+              fill: (icon as React.ReactElement<{ fill?: string }>).props.fill ? 'black' : 'none'
             })}
           </View>
           <Text className={`text-lg font-black italic ${isExpanded ? 'text-white' : 'text-white/90'}`}>{title}</Text>
@@ -55,7 +57,7 @@ const FeatureItem = ({ title, icon, children, isExpanded, onToggle }: any) => {
         <View className="ml-2">
           {isExpanded ? <ChevronDown size={20} color="white" /> : <ChevronRight size={20} color="white" opacity={0.5} />}
         </View>
-      </TouchableOpacity>
+      </Pressable>
       
       {isExpanded && (
         <View className="px-5 pb-5">
@@ -71,8 +73,10 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
   const t = useTranslation();
   const { packages, purchasePackage, restorePurchases, presentCodeRedemptionSheet } = useRevenueCat();
   const [loading, setLoading] = React.useState(false);
-  const [selectedIndex, setSelectedIndex] = React.useState(1); // Default to Quarterly (Popular)
+  const [selectedIndex, setSelectedIndex] = React.useState(1);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
+  const [canClose, setCanClose] = useState(false);
+  const closeFadeAnim = useRef(new Animated.Value(0)).current;
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -80,14 +84,24 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
 
   useEffect(() => {
     if (visible) {
+      setCanClose(false);
+      closeFadeAnim.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 10, useNativeDriver: true }),
       ]).start();
+      // X appears after 2 seconds
+      const closeTimer = setTimeout(() => {
+        setCanClose(true);
+        Animated.timing(closeFadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+      }, 2000);
+      return () => clearTimeout(closeTimer);
     } else {
       fadeAnim.setValue(0);
       slideAnim.setValue(100);
+      closeFadeAnim.setValue(0); // Reset X opacity
       setExpandedFeature(null);
+      setCanClose(false);
     }
   }, [visible]);
 
@@ -268,15 +282,25 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                   {t.premiumSubtitle}
                 </Text>
               </View>
-              <TouchableOpacity onPress={onClose} className="h-12 w-12 items-center justify-center rounded-full bg-white/20 border-2 border-white">
-                <X size={24} color="white" />
-              </TouchableOpacity>
+              <Animated.View style={{ opacity: closeFadeAnim }}>
+                <Pressable 
+                  onPress={() => {
+                    if (canClose) onClose();
+                  }}
+                  className="h-12 w-12 items-center justify-center rounded-full bg-white/20 border-[3px] border-white"
+                  style={({ pressed }) => ({
+                    opacity: canClose && pressed ? 0.7 : 1
+                  })}
+                >
+                  <X size={24} color="white" />
+                </Pressable>
+              </Animated.View>
             </View>
 
             <ScrollView 
               showsVerticalScrollIndicator={false} 
-              contentContainerStyle={{ flexGrow: 1 }}
-              scrollEnabled={expandedFeature !== null || SCREEN_HEIGHT < 750}
+              contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+              scrollEnabled={true}
             >
               
               {/* Features - Larger with White Boxes */}
@@ -299,18 +323,22 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                 {plans.map((plan, index) => {
                   const isSelected = selectedIndex === index;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={plan.key}
                       onPress={() => setSelectedIndex(index)}
-                      activeOpacity={0.9}
-                      className={`mb-3 rounded-[28px] border-2 overflow-hidden ${
-                        isSelected ? 'border-white bg-white/25 shadow-2xl' : 'border-white/10 bg-white/5'
-                      }`}
+                      style={{
+                        marginBottom: 12,
+                        borderRadius: 28,
+                        borderWidth: 3,
+                        overflow: 'hidden',
+                        borderColor: isSelected ? 'white' : 'rgba(255,255,255,0.1)',
+                        backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.05)',
+                      }}
                     >
                       <View className="p-4 flex-row items-center justify-between">
                         <View className="flex-row items-center flex-1">
                           <View className={`h-6 w-6 rounded-full border-2 items-center justify-center mr-4 ${isSelected ? 'border-white bg-white' : 'border-white/30'}`}>
-                            {isSelected && <View className="h-3 w-3 rounded-full bg-black" />}
+                            {isSelected && <View className="h-2.5 w-2.5 rounded-full bg-black" />}
                           </View>
                           <View>
                             <Text className="text-lg font-black text-white italic">{plan.label}</Text>
@@ -322,17 +350,29 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                           {plan.saving && <Text className="text-[10px] font-black text-white uppercase tracking-[1px] opacity-80">{plan.saving}</Text>}
                         </View>
                       </View>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
 
               {/* CTA - Larger and Brighter */}
-              <TouchableOpacity
+              <Pressable
                 onPress={handlePurchase}
                 disabled={loading}
-                activeOpacity={0.8}
-                className="h-20 bg-white rounded-[32px] items-center justify-center shadow-2xl mb-8"
+                style={({ pressed }) => ({
+                  height: 80,
+                  backgroundColor: 'white',
+                  borderRadius: 32,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#fff',
+                  shadowOffset: { width: 0, height: 10 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 20,
+                  elevation: 10,
+                  marginBottom: 32,
+                  opacity: pressed ? 0.8 : 1
+                })}
               >
                 {loading ? <ActivityIndicator color="black" /> : (
                   <View className="flex-row items-center">
@@ -340,17 +380,23 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                     <Text className="text-xl font-black text-black uppercase tracking-[1.5px]">{t.language === 'it' ? "PROVA GRATIS ORA" : "START FREE TRIAL"}</Text>
                   </View>
                 )}
-              </TouchableOpacity>
+              </Pressable>
 
               {/* Footer */}
               <View className="flex-row justify-center gap-x-12 mb-6">
-                <TouchableOpacity onPress={handleRestore}>
+                <Pressable 
+                  onPress={handleRestore}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                >
                   <Text className="text-[12px] font-black text-white/50 uppercase tracking-[2px]">{t.language === 'it' ? "RIPRISTINA" : "RESTORE"}</Text>
-                </TouchableOpacity>
+                </Pressable>
                 {Platform.OS === "ios" && (
-                  <TouchableOpacity onPress={presentCodeRedemptionSheet}>
+                  <Pressable 
+                    onPress={presentCodeRedemptionSheet}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                  >
                     <Text className="text-[12px] font-black text-white/50 uppercase tracking-[2px]">{t.language === 'it' ? "USA CODICE" : "USE CODE"}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </View>
 

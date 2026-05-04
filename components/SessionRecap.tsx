@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { View, Text, Image, TouchableOpacity, Alert, Animated, Easing, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Clock, Sun, Zap, Droplet, Camera, X, ShieldCheck, ChevronRight, Check } from "lucide-react-native";
+import { Clock, Sun, Zap, Droplet, Camera, X, ShieldCheck, ChevronRight, Check, Lock } from "lucide-react-native";
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { WebView } from 'react-native-webview';
 
 import { COLORS, formatDuration, FITZPATRICK_TYPES } from "@/constants/theme";
 import { useTranslation } from "@/constants/i18n";
+import { GlassCard } from "./GlassCard";
 
 interface SessionRecapProps {
   session: {
@@ -24,6 +25,8 @@ interface SessionRecapProps {
   onUpdateImage?: (imageUri: string, detectedColor?: string) => void;
   onClose?: () => void;
   showTitle?: boolean;
+  isPremium?: boolean;
+  onUpgrade?: () => void;
 }
 
 // --- Color Math Helpers ---
@@ -47,7 +50,7 @@ const getColorDistance = (color1: string, color2: string) => {
   );
 };
 
-export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true }: SessionRecapProps) {
+export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true, isPremium = false, onUpgrade }: SessionRecapProps) {
   const t = useTranslation();
   const [isScanning, setIsScanning] = useState(false);
   const [localUri, setLocalUri] = useState<string | null>(null);
@@ -280,29 +283,22 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
 
       <View className="flex-row flex-wrap justify-between gap-y-4 w-full">
         {stats.map((stat, i) => (
-          <View 
-            key={i} 
-            className="w-[48.5%] aspect-square rounded-[32px] overflow-hidden shadow-2xl border-2 border-white/60" 
-            style={{ shadowColor: COLORS.accentRed, shadowOpacity: 0.7, shadowRadius: 35 }}
-          >
-            <LinearGradient 
-              colors={i % 2 === 0 ? [COLORS.accentRed, "#ff3333"] : ["#ff3333", COLORS.accentOrange]} 
-              start={{ x: 0, y: 0 }} 
-              end={{ x: 1, y: 1 }} 
-              className="flex-1 items-center justify-center p-6"
-            >
-              <View className="h-16 w-16 rounded-full bg-white/20 items-center justify-center mb-4">
-                <stat.icon size={32} color="white" />
+          <View key={i} className="w-[48.5%] aspect-square">
+            <GlassCard style={{ padding: 0, borderRadius: 32, overflow: 'hidden', borderWidth: 2, borderColor: 'white' }}>
+              <View className="flex-1 items-center justify-center p-6">
+                <View className="h-16 w-16 rounded-full bg-white/10 items-center justify-center mb-4 border border-white/20">
+                  <stat.icon size={32} color="white" />
+                </View>
+                <Text className="text-[10px] font-black text-white/40 tracking-[2px] uppercase text-center mb-2">{stat.label}</Text>
+                <Text className="text-4xl font-black text-white text-center tracking-[-2px]">{stat.value}</Text>
               </View>
-              <Text className="text-[12px] font-black text-white/60 tracking-[2px] uppercase text-center mb-4">{stat.label}</Text>
-              <Text className="text-4xl font-black text-white text-center tracking-[-2px] mb-4">{stat.value}</Text>
-            </LinearGradient>
+            </GlassCard>
           </View>
         ))}
       </View>
 
-      <View className="items-center w-full mt-10">
-        {activeImageUri ? (
+      <View className="items-center w-full mt-10 mb-10">
+        {activeImageUri && isPremium ? (
           <View className="relative">
             <View className="h-64 w-64 rounded-[48px] overflow-hidden border-4 border-white shadow-2xl bg-black">
               <Image source={{ uri: activeImageUri }} className="h-full w-full opacity-90" />
@@ -339,15 +335,45 @@ export function SessionRecap({ session, onUpdateImage, onClose, showTitle = true
           </View>
         ) : (
           onUpdateImage && !isScanning && (
-            <TouchableOpacity 
-              className="w-full h-40 rounded-[48px] border-2 border-dashed border-white/30 bg-white/5 items-center justify-center"
-              onPress={handleImagePicker}
-            >
-              <View className="h-16 w-16 rounded-full bg-white/10 items-center justify-center mb-3">
-                <Camera size={32} color="white" opacity={0.6} />
-              </View>
-              <Text className="text-xs font-black text-white/40 uppercase tracking-[2px]">{t.captureProgress}</Text>
-            </TouchableOpacity>
+            isPremium ? (
+              // PREMIUM: Full camera button
+              <TouchableOpacity 
+                className="w-full h-40 rounded-[48px] border-2 border-dashed border-white/30 bg-white/5 items-center justify-center"
+                onPress={handleImagePicker}
+              >
+                <View className="h-16 w-16 rounded-full bg-white/10 items-center justify-center mb-3">
+                  <Camera size={32} color="white" opacity={0.6} />
+                </View>
+                <Text className="text-xs font-black text-white/40 uppercase tracking-[2px]">{t.captureProgress}</Text>
+              </TouchableOpacity>
+            ) : (
+              // FREE TEASER: Locked photo capture
+              <TouchableOpacity 
+                onPress={onUpgrade}
+                className="w-full h-40 rounded-[48px] overflow-hidden"
+                activeOpacity={0.85}
+              >
+                {/* Background ghost */}
+                <View className="absolute inset-0 rounded-[48px] border-2 border-white/10 bg-white/5 items-center justify-center">
+                  <Camera size={32} color="white" opacity={0.08} />
+                </View>
+                {/* Lock overlay */}
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)']}
+                  className="flex-1 items-center justify-center rounded-[48px]"
+                >
+                  <View className="h-14 w-14 rounded-full bg-white/10 border border-white/20 items-center justify-center mb-3">
+                    <Lock size={24} color="white" opacity={0.7} />
+                  </View>
+                  <Text className="text-[11px] font-black text-white/80 uppercase tracking-[2px] mb-1">
+                    {t.language === 'it' ? 'Cattura con Pro' : 'Capture with Pro'}
+                  </Text>
+                  <Text className="text-[10px] font-bold text-white/40">
+                    {t.language === 'it' ? 'Analisi AI del tuo progresso' : 'AI skin tone analysis'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )
           )
         )}
       </View>

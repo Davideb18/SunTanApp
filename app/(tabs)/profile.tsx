@@ -14,13 +14,11 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { SessionRecap } from "@/components/SessionRecap";
 import { HeaderButtons } from "../../components/HeaderButtons";
-import { PremiumModal } from "../../components/PremiumModal";
 import { useAppStore, SessionHistoryItem } from "@/store/useAppStore";
 import { FITZPATRICK_TYPES, COLORS, formatDuration } from "@/constants/theme";
 import { SettingsModal } from "@/components/SettingsModal";
 import { schedulePhaseEndNotification, scheduleSafetyAlert } from "@/utils/notifications";
 import { useTranslation } from "@/constants/i18n";
-import { AmbassadorModal } from "@/components/AmbassadorModal";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CHART_HEIGHT = 150;
@@ -34,8 +32,8 @@ export default function ProfileScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const visualJourneyRef = useRef<ScrollView>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [premiumVisible, setPremiumVisible] = useState(false);
-  const [ambassadorVisible, setAmbassadorVisible] = useState(false);
+  const setPremiumVisible = useAppStore(s => s.setPremiumVisible);
+  const setAmbassadorVisible = useAppStore(s => s.setAmbassadorVisible);
   const skinHex = useAppStore(s => s.skinHex);
   const setSkinHex = useAppStore(s => s.setSkinHex);
   const fitzpatrickLevel = useAppStore(s => s.fitzpatrickLevel);
@@ -182,8 +180,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <PremiumModal visible={premiumVisible} onClose={() => setPremiumVisible(false)} />
-
         <View />
 
         {/* 1. VISUAL JOURNEY (STACKED POLAROIDS) */}
@@ -201,62 +197,86 @@ export default function ProfileScreen() {
             </View>
           </View>
           
-          <ScrollView 
-            ref={visualJourneyRef}
-            onContentSizeChange={() => visualJourneyRef.current?.scrollToEnd({ animated: false })}
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}
-            style={{ marginHorizontal: -24 }}
-          >
-            <View className="flex-row gap-4 px-2">
-                {timelineDays.map((day, i) => {
-                  const isToday = i === timelineDays.length - 1;
-                  const lastSession = day.sessions[day.sessions.length - 1];
-                  
-                  return (
-                    <View key={day.dateStr} className="items-center" style={{ width: 85 }}>
-                      <View className="mb-3 items-center">
-                        <Text className={`text-[9px] font-black uppercase tracking-[1.5px] ${isToday ? 'text-accentYellow' : 'text-white/50'}`}>
-                          {isToday ? (t.language === 'it' ? 'Oggi' : 'Today') : day.date.toLocaleDateString(t.language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short' })}
-                        </Text>
-                        <Text className={`text-[11px] font-bold mt-0.5 ${isToday ? 'text-accentYellow' : 'text-white/20'}`}>
-                          {day.date.getDate()}
-                        </Text>
-                      </View>
-
-                      <View className="relative" style={{ shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 15 }}>
-                        <TouchableOpacity 
-                          activeOpacity={0.9}
-                          onPress={() => lastSession && setSelectedSession(lastSession)}
-                          className={`h-20 w-20 rounded-[24px] overflow-hidden border items-center justify-center ${lastSession ? 'bg-black border-white' : 'bg-white/10 border-white/30'}`}
-                        >
-                          {lastSession?.imageUri ? (
-                            <Image source={{ uri: lastSession.imageUri }} className="h-full w-full opacity-90" />
-                          ) : (
-                            <View className="items-center">
-                              <Sun size={16} color="white" opacity={0.3} />
-                            </View>
-                          )}
-                        </TouchableOpacity>
-
-                        {lastSession?.skinColorHex && (
-                          <View 
-                            className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-[3px] border-black"
-                            style={{ backgroundColor: lastSession.skinColorHex }}
-                          />
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
+          {!hasPremium ? (
+            // LOCKED TEASER
+            <TouchableOpacity 
+              onPress={() => setPremiumVisible(true)}
+              activeOpacity={0.9}
+              className="w-full h-48 rounded-[40px] overflow-hidden border-[3px] border-white bg-white/5 items-center justify-center shadow-2xl"
+            >
+              <LinearGradient
+                colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.95)']}
+                className="absolute inset-0"
+              />
+              <View className="absolute top-4 right-6 bg-accentYellow px-3 py-1.5 rounded-full border border-white/20">
+                <Text className="text-[10px] font-black text-black">GLOWY PRO</Text>
               </View>
-            </ScrollView>
+              <View className="items-center justify-center">
+                <View className="h-20 w-20 rounded-full bg-white/10 border-2 border-white/30 items-center justify-center mb-5">
+                  <Lock size={32} color="white" />
+                </View>
+                <Text className="text-lg font-black text-white uppercase tracking-[3px]">{t.visualJourney}</Text>
+                <Text className="text-[11px] font-bold text-accentYellow uppercase mt-2 tracking-[1.5px] italic">{t.unlockHistory}</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <ScrollView 
+              ref={visualJourneyRef}
+              onContentSizeChange={() => visualJourneyRef.current?.scrollToEnd({ animated: false })}
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}
+              style={{ marginHorizontal: -24 }}
+            >
+              <View className="flex-row gap-4 px-2">
+                  {timelineDays.map((day, i) => {
+                    const isToday = i === timelineDays.length - 1;
+                    const lastSession = day.sessions[day.sessions.length - 1];
+                    
+                    return (
+                      <View key={day.dateStr} className="items-center" style={{ width: 85 }}>
+                        <View className="mb-3 items-center">
+                          <Text className={`text-[9px] font-black uppercase tracking-[1.5px] ${isToday ? 'text-accentYellow' : 'text-white/50'}`}>
+                            {isToday ? (t.language === 'it' ? 'Oggi' : 'Today') : day.date.toLocaleDateString(t.language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short' })}
+                          </Text>
+                          <Text className={`text-[11px] font-bold mt-0.5 ${isToday ? 'text-accentYellow' : 'text-white/20'}`}>
+                            {day.date.getDate()}
+                          </Text>
+                        </View>
+  
+                        <View className="relative" style={{ shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 15 }}>
+                          <TouchableOpacity 
+                            activeOpacity={0.9}
+                            onPress={() => lastSession && setSelectedSession(lastSession)}
+                            className={`h-20 w-20 rounded-[24px] overflow-hidden border items-center justify-center ${lastSession ? 'bg-black border-white' : 'bg-white/10 border-white/30'}`}
+                          >
+                            {lastSession?.imageUri ? (
+                              <Image source={{ uri: lastSession.imageUri }} className="h-full w-full opacity-90" />
+                            ) : (
+                              <View className="items-center">
+                                <Sun size={16} color="white" opacity={0.3} />
+                              </View>
+                            )}
+                          </TouchableOpacity>
+  
+                          {lastSession?.skinColorHex && (
+                            <View 
+                              className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-[3px] border-black"
+                              style={{ backgroundColor: lastSession.skinColorHex }}
+                            />
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+          )}
         </View>
 
         {/* 2. QUICK SETTINGS (SPF & TONE) */}
         <View className="mb-12">
-          <GlassCard style={{ padding: 22, borderRadius: 32, width: "100%", backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+          <GlassCard style={{ padding: 22, borderRadius: 32, width: "100%", backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 2, borderColor: "white" }}>
             <View className="mb-8">
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center">
@@ -369,7 +389,7 @@ export default function ProfileScreen() {
           </View>
 
           {analytics ? (
-            <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
+            <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 2, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
               <View className="mb-8 flex-row items-start justify-between">
                 <View>
                   <Text className="text-sm font-black text-white uppercase tracking-[1px]">{t.dailyExposure}</Text>
@@ -448,7 +468,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
+          <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 2, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
             {/* Vitamin D Section */}
             <View className="mb-8">
                <View className="mb-4">
@@ -519,44 +539,136 @@ export default function ProfileScreen() {
               <Text className="mt-4 text-center text-xs font-black text-white/20 uppercase tracking-[2px]">{t.emptyLog}</Text>
             </GlassCard>
           ) : (
-            history.slice(0, 8).map((item) => (
-              <TouchableOpacity key={item.id} activeOpacity={0.7} onPress={() => setSelectedSession(item)} className="mb-4 shadow-2xl">
-                <GlassCard style={{ borderRadius: 36, padding: 20, width: "100%", borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
-                  <View className="flex-row items-center">
-                    <View 
-                      className="h-16 w-16 items-center justify-center rounded-[22px] bg-black/40 border-2 overflow-hidden"
-                      style={{ borderColor: item.skinColorHex || 'rgba(255,255,255,0.1)' }}
-                    >
-                       {item.imageUri ? (
-                         <Image source={{ uri: item.imageUri }} className="h-full w-full" />
-                       ) : (
-                         <Sun size={24} color={COLORS.accentYellow} opacity={0.3} />
-                       )}
-                    </View>
-                    <View className="ml-5 flex-1">
-                      <View className="flex-row items-center mb-1">
-                        <Clock size={12} color="white" opacity={0.3} />
-                        <Text className="ml-2 text-[11px] font-black text-white/40 uppercase tracking-[1.5px]">
-                          {new Date(item.date).toLocaleDateString(t.language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short', day: 'numeric' })}
-                        </Text>
+            <>
+              {/* Visible sessions: max 3 for free users */}
+              {(hasPremium ? history : history.slice(0, 3)).map((item) => (
+                <TouchableOpacity key={item.id} activeOpacity={0.7} onPress={() => setSelectedSession(item)} className="mb-4 shadow-2xl">
+                  <GlassCard style={{ borderRadius: 36, padding: 20, width: "100%", borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
+                    <View className="flex-row items-center">
+                      <View 
+                        className="h-16 w-16 items-center justify-center rounded-[22px] bg-black/40 border-2 overflow-hidden"
+                        style={{ borderColor: item.skinColorHex || 'rgba(255,255,255,0.1)' }}
+                      >
+                         {item.imageUri ? (
+                           <Image source={{ uri: item.imageUri }} className="h-full w-full" />
+                         ) : (
+                           <Sun size={24} color={COLORS.accentYellow} opacity={0.3} />
+                         )}
                       </View>
-                      <Text className="text-[22px] font-black text-white tracking-[-0.5px]">{formatDuration(item.totalSeconds)}</Text>
+                      <View className="ml-5 flex-1">
+                        <View className="flex-row items-center mb-1">
+                          <Clock size={12} color="white" opacity={0.3} />
+                          <Text className="ml-2 text-[11px] font-black text-white/40 uppercase tracking-[1.5px]">
+                            {new Date(item.date).toLocaleDateString(t.language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short', day: 'numeric' })}
+                          </Text>
+                        </View>
+                        <Text className="text-[22px] font-black text-white tracking-[-0.5px]">{formatDuration(item.totalSeconds)}</Text>
+                      </View>
+                      <View className="mr-4 items-end">
+                         <View className="flex-row items-center bg-white/5 px-2 py-1 rounded-lg">
+                            <Droplet size={10} color="#60A5FA" />
+                            <Text className="ml-1.5 text-[10px] font-black text-white/60">{item.sweatMl}ml</Text>
+                         </View>
+                         <View className="flex-row items-center bg-white/5 px-2 py-1 rounded-lg mt-1.5">
+                            <Sun size={10} color={COLORS.accentYellow} />
+                            <Text className="ml-1.5 text-[10px] font-black text-white/60">UV {item.uvIndex}</Text>
+                         </View>
+                      </View>
+                      <ChevronRight size={18} color="white" opacity={0.2} />
                     </View>
-                    <View className="mr-4 items-end">
-                       <View className="flex-row items-center bg-white/5 px-2 py-1 rounded-lg">
-                          <Droplet size={10} color="#60A5FA" />
-                          <Text className="ml-1.5 text-[10px] font-black text-white/60">{item.sweatMl}ml</Text>
-                       </View>
-                       <View className="flex-row items-center bg-white/5 px-2 py-1 rounded-lg mt-1.5">
-                          <Sun size={10} color={COLORS.accentYellow} />
-                          <Text className="ml-1.5 text-[10px] font-black text-white/60">UV {item.uvIndex}</Text>
-                       </View>
+                  </GlassCard>
+                </TouchableOpacity>
+              ))}
+
+              {/* PREMIUM TEASER: Ghost cards for free users */}
+              {!hasPremium && history.length >= 1 && (
+                <View style={{ position: 'relative', marginTop: 10 }}>
+                  {/* Ghost card 1 */}
+                  <View className="mb-4 opacity-40" style={{ pointerEvents: 'none' }}>
+                    <View style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                      <View className="flex-row items-center">
+                        <View className="h-16 w-16 rounded-[22px] bg-white/10" />
+                        <View className="ml-5 flex-1">
+                          <View className="h-3 w-20 rounded-full bg-white/20 mb-2" />
+                          <View className="h-6 w-28 rounded-full bg-white/20" />
+                        </View>
+                        <View className="mr-4 items-end gap-2">
+                           <View className="h-5 w-14 rounded-lg bg-white/10" />
+                           <View className="h-5 w-14 rounded-lg bg-white/10" />
+                        </View>
+                      </View>
                     </View>
-                    <ChevronRight size={18} color="white" opacity={0.2} />
                   </View>
-                </GlassCard>
-              </TouchableOpacity>
-            ))
+
+                  {/* Ghost card 2 */}
+                  <View className="mb-4 opacity-20" style={{ pointerEvents: 'none' }}>
+                    <View style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                      <View className="flex-row items-center">
+                        <View className="h-16 w-16 rounded-[22px] bg-white/5" />
+                        <View className="ml-5 flex-1">
+                          <View className="h-3 w-16 rounded-full bg-white/10 mb-2" />
+                          <View className="h-6 w-24 rounded-full bg-white/10" />
+                        </View>
+                        <View className="mr-4 items-end gap-2">
+                          <View className="h-5 w-14 rounded-lg bg-white/5" />
+                          <View className="h-5 w-14 rounded-lg bg-white/5" />
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Ghost card 3 - Nero Chiaro */}
+                  <View className="mb-4 opacity-10" style={{ pointerEvents: 'none' }}>
+                    <View style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(20,20,20,1)' }}>
+                      <View className="flex-row items-center justify-center">
+                         <Text className="text-[10px] font-black text-white/20 uppercase tracking-[2px]">SBLOCCA CON PREMIUM</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Ghost card 4 - Grigio Chiaro Graduato */}
+                  <View className="mb-6 opacity-5" style={{ pointerEvents: 'none' }}>
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.02)']}
+                      style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.03)' }}
+                    >
+                      <View className="flex-row items-center justify-center">
+                         <Text className="text-[9px] font-black text-white/10 uppercase tracking-[3px]">PRO LEVEL ONLY</Text>
+                      </View>
+                    </LinearGradient>
+                  </View>
+
+                  {/* Gradient fade + unlock CTA overlay */}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,1)']}
+                    style={{ position: 'absolute', bottom: -20, left: 0, right: 0, height: 320, borderRadius: 36, justifyContent: 'flex-end', paddingBottom: 40, alignItems: 'center' }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setPremiumVisible(true)}
+                      activeOpacity={0.8}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: COLORS.accentYellow,
+                        paddingHorizontal: 32,
+                        paddingVertical: 16,
+                        borderRadius: 32,
+                        shadowColor: COLORS.accentYellow,
+                        shadowOpacity: 0.5,
+                        shadowRadius: 15,
+                        elevation: 10,
+                        gap: 10,
+                      }}
+                    >
+                      <Lock size={18} color="black" />
+                      <Text style={{ color: "black", fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 1.5 }}>
+                        {t.language === 'it' ? `Sblocca Cronologia Completa` : `Unlock Full History`}
+                      </Text>
+                    </TouchableOpacity>
+                  </LinearGradient>
+                </View>
+              )}
+            </>
           )}
         </View>
 
@@ -576,16 +688,7 @@ export default function ProfileScreen() {
           </GlassCard>
         </View>
 
-        {/* Lock message for non-premium */}
-        {!hasPremium && history.length > 0 && (
-          <TouchableOpacity 
-            onPress={() => setPremiumVisible(true)}
-            className="mt-6 flex-row items-center justify-center bg-white/5 border border-accentYellow/20 p-4 rounded-2xl"
-          >
-             <Lock size={16} color={COLORS.accentYellow} />
-             <Text className="ml-2 text-white/70 font-bold text-[10px] uppercase tracking-[1px]">{t.unlockHistory}</Text>
-          </TouchableOpacity>
-        )}
+
 
       </ScrollView>
 
@@ -598,6 +701,8 @@ export default function ProfileScreen() {
                 <SessionRecap 
                   session={selectedSession as any}
                   onClose={() => setSelectedSession(null)}
+                  isPremium={hasPremium}
+                  onUpgrade={() => { setSelectedSession(null); setTimeout(() => setPremiumVisible(true), 300); }}
                   onUpdateImage={(uri, color) => {
                     if (selectedSession.id) {
                       updateHistoryItemData(selectedSession.id, { imageUri: uri, skinColorHex: color });
@@ -615,7 +720,6 @@ export default function ProfileScreen() {
         visible={settingsVisible} 
         onClose={() => setSettingsVisible(false)} 
       />
-      <AmbassadorModal visible={ambassadorVisible} onClose={() => setAmbassadorVisible(false)} />
     </GradientBackground>
   );
 }

@@ -47,6 +47,9 @@ export interface AppState {
 
   // ── Premium ───────────────────────────────────────────────────────────────
   hasPremium: boolean;
+  appOpenCount: number;
+  premiumVisible: boolean;
+  ambassadorVisible: boolean;
 
   // ── Mode & Weather ────────────────────────────────────────────────────────
   lastEngineMode: EngineMode;
@@ -85,6 +88,9 @@ export interface AppState {
   completeOnboarding: () => void;
   setCurrentSpf: (spf: number) => void;
   setHasPremium: (value: boolean) => void;
+  incrementAppOpenCount: () => void;
+  setPremiumVisible: (visible: boolean) => void;
+  setAmbassadorVisible: (visible: boolean) => void;
   setLastEngineMode: (mode: EngineMode) => void;
   setWeatherData: (params: {
     currentUv: number;
@@ -195,6 +201,9 @@ const DEFAULT_STATE = {
   baseTan: null,
   currentSpf: 30,
   hasPremium: false,
+  appOpenCount: 0,
+  premiumVisible: false,
+  ambassadorVisible: false,
   lastEngineMode: "coach" as EngineMode,
   cachedCurrentUv: 0,
   currentTemp: 0,
@@ -235,6 +244,11 @@ export const useAppStore = create<AppState>()(
       setCurrentSpf: (spf) => set({ currentSpf: spf }),
 
       setHasPremium: (value) => set({ hasPremium: value }),
+
+      incrementAppOpenCount: () => set((state) => ({ appOpenCount: state.appOpenCount + 1 })),
+      
+      setPremiumVisible: (visible) => set({ premiumVisible: visible }),
+      setAmbassadorVisible: (visible) => set({ ambassadorVisible: visible }),
 
       setLastEngineMode: (mode) => set({ lastEngineMode: mode }),
 

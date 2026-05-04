@@ -46,6 +46,15 @@
           "locationAlwaysPermission": "Glowy monitora l'UV per la tua sicurezza.",
           "isAndroidBackgroundLocationEnabled": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FACC15",
+          "defaultChannel": "default",
+          "sounds": []
+        }
       ]
     ],
     "experiments": {

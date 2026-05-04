@@ -16,10 +16,10 @@ Notifications.setNotificationHandler({
 export async function setupNotifications() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'SunTanApp',
+      name: 'Glowy',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 500, 200, 500],
-      lightColor: '#FFDE00',
+      lightColor: '#FACC15',
     });
   }
 

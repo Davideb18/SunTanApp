@@ -124,7 +124,7 @@ export const translations = {
     activeLoad: "ACTIVE LOAD",
     fluidsLost: "FLUIDS LOST",
     safeLevels: "SAFE LEVELS",
-    dailyTanningGoal: "DAILY TANNING GOAL",
+    dailyTanningGoal: "Daily Tanning Goal",
     goalReached: "GOAL REACHED",
     earnTitle: "Ambassador Program",
     earnDesc: "Share Glowy with your friends and earn rewards for every new user.",
@@ -255,6 +255,12 @@ export const translations = {
     captureProgress: "Capture Progress",
     manualRefinement: "Manual Refinement",
     adjustDetection: "Adjust Detection",
+    scannerTimeout: "Scan Timeout",
+    scannerError: "The scan took too long. Please try again.",
+    permissionDenied: "Permission Denied",
+    cameraNeeded: "Camera access is required to capture your progress photo.",
+    unlockPro: "Unlock Glowy Pro",
+    tryFreeBanner: "Try free • No commitment",
     
     // Ambassador
     partner: "PARTNER",
@@ -528,6 +534,12 @@ export const translations = {
     captureProgress: "Cattura Progresso",
     manualRefinement: "Regolazione Manuale",
     adjustDetection: "Correggi Rilevamento",
+    scannerTimeout: "Tempo Scaduto",
+    scannerError: "La scansione ha impiegato troppo tempo. Riprova.",
+    permissionDenied: "Permesso Negato",
+    cameraNeeded: "L'accesso alla fotocamera è necessario per catturare la foto dei tuoi progressi.",
+    unlockPro: "Sblocca Glowy Pro",
+    tryFreeBanner: "Prova gratis • Senza impegno",
     
     // Ambassador
     partner: "PARTNER",
