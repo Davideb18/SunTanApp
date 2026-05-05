@@ -4,7 +4,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ExpoLocation from "expo-location";
 import * as Notifications from "expo-notifications";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Clock, Droplet, Dna, TrendingUp, Sparkles, Cloud, 
   AlertTriangle, Calendar, Moon, Sun, CloudRain, 
@@ -238,41 +237,8 @@ export default function WeatherScreen() {
   const strategyEnd = tomorrowForecast?.strategyEndTime ?? tomorrowForecast?.bestEndTime ?? "--:--";
   const peakRainProbability = Math.round(tomorrowForecast?.peakRainProbability ?? 0);
   const strategyRainProbability = Math.round(tomorrowForecast?.strategyRainProbability ?? 0);
-
-  useEffect(() => {
-    const notifyRainyTomorrow = async () => {
-      if (!tomorrowForecast?.rainExpected) return;
-
-      const notificationKey = "weather_tomorrow_rain_notification_date";
-      const alreadyNotifiedDate = await AsyncStorage.getItem(notificationKey);
-      if (alreadyNotifiedDate === tomorrowForecast.date) return;
-
-      let { status } = await Notifications.getPermissionsAsync();
-      if (status !== "granted") {
-        const requested = await Notifications.requestPermissionsAsync();
-        status = requested.status;
-      }
-      if (status !== "granted") return;
-
-      const bodyText = tomorrowForecast.hasDryFallback
-        ? `UV peak is rainy (${peakRainProbability}%). Best window: ${strategyStart} - ${strategyEnd} (${strategyRainProbability}% rain).`
-        : `Rain expected during UV peak (${peakRainProbability}%). No dry window available tomorrow.`;
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Tomorrow Strategy: Rain Expected",
-          body: bodyText,
-        },
-        trigger: null,
-      });
-
-      await AsyncStorage.setItem(notificationKey, tomorrowForecast.date);
-    };
-
-    notifyRainyTomorrow().catch((error) => {
-      console.error("Notification error", error);
-    });
-  }, [tomorrowForecast, strategyStart, strategyEnd]);
+  const tomorrowRecommended = tomorrowForecast ? (tomorrowForecast.isOptimalWindow || tomorrowForecast.hasDryFallback) : false;
+  const tomorrowRecommendationLabel = tomorrowRecommended ? "SÌ" : "NO";
 
   return (
     <GradientBackground>
@@ -504,8 +470,10 @@ export default function WeatherScreen() {
                     <Calendar size={18} color={COLORS.accentYellow} />
                     <Text className="ml-3 text-base font-black text-white">{t.tomorrowStrategy}</Text>
                   </View>
-                  <View className="bg-accentYellow/10 border border-accentYellow/20 px-3 py-1 rounded-xl">
-                    <Text className="text-[10px] font-black text-accentYellow uppercase">{t.best}: {strategyStart}</Text>
+                  <View className={`px-3 py-1 rounded-xl border ${tomorrowRecommended ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                    <Text className={`text-[10px] font-black uppercase ${tomorrowRecommended ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {tomorrowRecommendationLabel} · {strategyStart}
+                    </Text>
                   </View>
                </View>
 
@@ -533,11 +501,11 @@ export default function WeatherScreen() {
                     </View>
                     <View className="flex-1 ml-8 pl-6 border-l border-white/10">
                       <Text className="text-[11px] font-bold text-white/70 leading-[16px] mb-2">
-                        Today's highest UV is <Text className="text-accentYellow font-black">{(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text> at <Text className="text-white font-black">{strategyStart}</Text> (<Text className="text-white font-black">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°C</Text>).
+                        {tomorrowRecommended ? 'Sì' : 'No'}: picco UV <Text className="text-accentYellow font-black">{(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text> tra <Text className="text-white font-black">{strategyStart}</Text> e <Text className="text-white font-black">{strategyEnd}</Text> con temperatura <Text className="text-white font-black">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°C</Text>.
                       </Text>
-                      <View className={`flex-row items-center px-3 py-1.5 rounded-lg ${tomorrowForecast?.rainExpected ? 'bg-[#F97316]/10 border border-[#F97316]/30' : 'bg-accentYellow/10 border border-accentYellow/30'}`}>
-                        <Text className={`text-[10px] font-black uppercase tracking-[1px] ${tomorrowForecast?.rainExpected ? 'text-[#F97316]' : 'text-accentYellow'}`}>
-                          {tomorrowForecast?.rainExpected ? '❌ Not Recommended' : '✅ Recommended'}
+                      <View className={`flex-row items-center px-3 py-1.5 rounded-lg ${tomorrowRecommended ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-rose-500/10 border border-rose-500/30'}`}>
+                        <Text className={`text-[10px] font-black uppercase tracking-[1px] ${tomorrowRecommended ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {tomorrowRecommended ? '✅ Consigliato' : '❌ Sconsigliato'}
                         </Text>
                       </View>
                     </View>
