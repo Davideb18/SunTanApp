@@ -18,8 +18,10 @@ import { Tabs, Redirect } from "expo-router";
 import { useAppStore } from "@/store/useAppStore";
 import { CustomTabBar } from "@/components/CustomTabBar";
 import { UpsellBanner } from "@/components/UpsellBanner";
+import { useTranslation } from "@/constants/i18n";
 
 export default function TabsLayout() {
+  const t = useTranslation();
   const hasCompletedOnboarding = useAppStore((s) => s.hasCompletedOnboarding);
   const hasPremium = useAppStore((s) => s.hasPremium);
   const appOpenCount = useAppStore((s) => s.appOpenCount);
@@ -70,9 +72,9 @@ export default function TabsLayout() {
           headerShown: false,
         }}
       >
-        <Tabs.Screen name="weather" options={{ title: "UV Index" }} />
-        <Tabs.Screen name="index" options={{ title: "Tracker" }} />
-        <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+        <Tabs.Screen name="weather" options={{ title: t.environment }} />
+        <Tabs.Screen name="index" options={{ title: t.tracker }} />
+        <Tabs.Screen name="profile" options={{ title: t.myStudio }} />
       </Tabs>
 
       {/* Upsell Banner — shown every session for free users */}

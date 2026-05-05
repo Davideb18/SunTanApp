@@ -46,12 +46,12 @@ const COACH_CREAM_MULTIPLIERS: Record<number, number> = {
 
 const getCoachSkinMultiplier = (level: number) => {
   const multipliers: Record<number, number> = {
-    1: 0.6,   // Very fair: less time
+    1: 0.45,  // Very fair: very conservative
     2: 1.0,   // Fair: baseline
-    3: 1.5,   // Medium
-    4: 2.2,   // Olive
-    5: 3.2,   // Dark Brown
-    6: 5.0,   // Black: much more time
+    3: 1.6,   // Medium
+    4: 2.5,   // Olive
+    5: 4.0,   // Dark Brown
+    6: 6.0,   // Black: conservative limit
   };
   return multipliers[level] || 1.0;
 };
@@ -88,14 +88,18 @@ const deriveCoachPlan = (params: {
     };
   }
 
-  const uvFactor = Math.max(0.6, Math.min(1.35, 10 / Math.max(1, params.uvIndex)));
+  // Conservative UV factor: more aggressive reduction as UV increases
+  const uvFactor = Math.max(0.35, Math.min(2.5, 9 / Math.max(1, params.uvIndex)));
   const skinFactor = getCoachSkinMultiplier(params.skinLevel);
   const creamFactor = COACH_CREAM_MULTIPLIERS[params.creamSpf] ?? 1;
   const intensityFactor = getCoachIntensityMultiplier(params.intensity);
 
-  const effectiveMinutes = Math.max(
-    5,
-    Math.round(params.baseMinutes * uvFactor * skinFactor * creamFactor * intensityFactor)
+  const effectiveMinutes = Math.min(
+    60, // Safety hard-cap for coach sessions
+    Math.max(
+      5,
+      Math.round(params.baseMinutes * uvFactor * skinFactor * creamFactor * intensityFactor)
+    )
   );
 
   const targetRotationMinutes = params.intensity === "gentle" ? 12 : params.intensity === "strong" ? 8 : 10;
@@ -291,19 +295,26 @@ export default function TrackerScreen() {
 
   const getVitDEfficiency = (level: number) => {
     const factors: Record<number, number> = {
-      1: 1.2,
+      1: 1.0,
       2: 1.0,
       3: 0.7,
-      4: 0.4,
+      4: 0.45,
       5: 0.25,
-      6: 0.15,
+      6: 0.12,
     };
     return factors[level] || 0.7;
   };
 
   const skinEfficiency = getVitDEfficiency(coachSkinLevel);
-  const vitD = Math.floor((totalElapsedSeconds / 60) * (cachedCurrentUv * 25 * skinEfficiency)); 
-  const sweatMl = Math.floor((totalElapsedSeconds / 60) * 16.6); 
+  const minutes = totalElapsedSeconds / 60;
+  
+  // Dynamic Vitamin D: scales with UV and Skin Type
+  const vitD = Math.floor(minutes * 150 * (cachedCurrentUv / 10) * skinEfficiency); 
+
+  // Dynamic Hydration: scales with UV and Intensity
+  const sweatIntensityFactor = coachIntensity === "gentle" ? 0.85 : coachIntensity === "strong" ? 1.25 : 1.0;
+  const uvHydrationFactor = 1 + (cachedCurrentUv * 0.12);
+  const sweatMl = Math.floor(minutes * 10 * uvHydrationFactor * sweatIntensityFactor); 
 
   return (
     <GradientBackground>

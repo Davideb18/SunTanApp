@@ -12,6 +12,7 @@ import { CloudSun, Clock, User2 } from "lucide-react-native";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 
 import { COLORS } from "@/constants/theme";
+import { useTranslation } from "@/constants/i18n";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TAB_BAR_WIDTH = SCREEN_WIDTH - 32;
@@ -19,6 +20,7 @@ const TAB_BAR_HEIGHT = 68;
 const HUMP_RADIUS = 38;
 
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const t = useTranslation();
   const insets = useSafeAreaInsets();
 
   return (
@@ -109,9 +111,9 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                          </View>
                       </View>
                    </View>
-                   <Text className={`mt-1.5 text-center text-[11px] font-black tracking-[1.5px] ${isFocused ? "text-white" : "text-white/50"}`}>
-                     TRACKER
-                   </Text>
+                    <Text className={`mt-1.5 text-center text-[11px] font-black tracking-[1.5px] ${isFocused ? "text-white" : "text-white/50"}`}>
+                      {t.tracker}
+                    </Text>
                 </TouchableOpacity>
               );
             }
@@ -126,7 +128,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                 <IconComp size={24} color={isFocused ? activeColor : inactiveColor} strokeWidth={2.2} />
                 <View className="items-center">
                   <Text className={`mt-1.5 text-center text-[11px] font-black tracking-[1.5px] ${isFocused ? "text-white" : "text-white/50"}`}>
-                    {route.name === "weather" ? "HOME" : "PROFILE"}
+                    {route.name === "weather" ? t.environment : t.myStudio}
                   </Text>
                 </View>
               </TouchableOpacity>

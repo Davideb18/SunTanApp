@@ -1,12 +1,12 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, Modal } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, Modal, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
 import { 
   Settings, History as HistoryIcon, Shield, 
   Trash2, ChevronRight, Sun, Zap,
   Activity, ArrowUpRight, BarChart3, Camera,
-  ShieldCheck, Droplet, Clock, Check, Flame, Bell, Lock, X, Image as ImageIcon
+  ShieldCheck, Droplet, Clock, Check, Flame, Bell, Lock, X, Image as ImageIcon, Gift
 } from "lucide-react-native";
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -643,19 +643,33 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Danger Zone */}
-        <View className="mt-16">
-          <GlassCard style={{ padding: 2, borderRadius: 32, width: "100%", borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "rgba(255,59,48,0.35)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
-            <TouchableOpacity 
-              onPress={resetProfile} 
-              className="flex-row items-center justify-center rounded-[30px] border border-red-500/20 bg-red-500/5 py-6"
-              activeOpacity={0.7}
-            >
-              <Trash2 size={18} color="#FF3B30" />
-              <Text className="ml-3 text-xs font-black uppercase tracking-[3px] text-[#FF3B30]">
-                {t.purgeData}
+        {/* 5. INVITE FRIENDS */}
+        <View className="mt-12">
+          <GlassCard style={{ padding: 0, borderRadius: 48, width: "100%", backgroundColor: "rgba(0,0,0,0.7)", borderWidth: 2, borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20, overflow: 'hidden' }}>
+            <Image source={require("@/assets/shared.png")} className="absolute h-full w-full opacity-30" resizeMode="cover" />
+            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} className="absolute inset-0" />
+            
+            <View className="items-center p-10">
+              <View className="h-16 w-16 bg-white/10 rounded-full items-center justify-center mb-6 border border-white/20">
+                <Gift size={32} color={COLORS.accentYellow} />
+              </View>
+              <Text className="text-2xl font-black text-white mb-2 italic text-center tracking-[-0.5px]">{t.shareGlowy}</Text>
+              <Text className="text-sm font-bold text-white/60 text-center mb-8 px-6 leading-5">
+                {t.shareDesc}
               </Text>
-            </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={async () => {
+                  try {
+                    await Share.share({
+                      message: t.shareMessage,
+                    });
+                  } catch (e) { console.error(e); }
+                }}
+                className="w-full bg-accentYellow py-5 rounded-[24px] items-center justify-center shadow-2xl shadow-accentYellow/40"
+              >
+                <Text className="text-base font-black text-black uppercase tracking-[2px]">{t.shareWithFriends}</Text>
+              </TouchableOpacity>
+            </View>
           </GlassCard>
         </View>
 

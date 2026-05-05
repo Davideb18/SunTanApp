@@ -446,7 +446,13 @@ export default function WeatherScreen() {
                 <Layers size={18} color="#A78BFA" />
                 <Text className="mt-3 text-[22px] font-black text-white">{Math.round((weather.diffuseRadiation / (weather.shortwaveRadiation || 1)) * 100)}%</Text>
                 <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.reflection}</Text>
-                <Text className="mt-2 text-[9px] font-bold text-[#A78BFA] uppercase">{t.uvBouncing}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-[#A78BFA] uppercase">
+                  {(weather.diffuseRadiation / (weather.shortwaveRadiation || 1)) * 100 < 25 
+                    ? t.directOnly 
+                    : (weather.diffuseRadiation / (weather.shortwaveRadiation || 1)) * 100 < 45 
+                      ? t.surroundGlow 
+                      : t.highReflect}
+                </Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((weather.diffuseRadiation / (weather.shortwaveRadiation || 1)) * 100, 100)}%`, backgroundColor: "#A78BFA" }} />
                 </View>

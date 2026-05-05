@@ -78,9 +78,7 @@ export const AmbassadorModal = ({ visible, onClose }: AmbassadorModalProps) => {
                 ) : (
                   <View>
                     <Text className="text-[26px] font-black text-black mb-6 text-center leading-[30px] italic">
-                      {t.language === 'it' 
-                        ? "PROMUOVI GLOWY NELLE TUE STORIE!" 
-                        : "PROMOTE GLOWY IN YOUR STORIES!"}
+                      {t.promoteGlowy}
                     </Text>
                     
                     <Text className="text-sm font-medium text-black/60 mb-4 text-center">{t.ambassadorDesc}</Text>
@@ -88,7 +86,7 @@ export const AmbassadorModal = ({ visible, onClose }: AmbassadorModalProps) => {
                     <View className="bg-black/5 p-4 rounded-3xl border border-black/10 mb-6">
                       <View className="flex-row items-center mb-2 justify-center">
                          <MessageCircle size={14} color="black" opacity={0.6} />
-                         <Text className="ml-2 text-[10px] font-black text-black/60 uppercase tracking-[2px]">{t.language === 'it' ? "AVVISO" : "NOTICE"}</Text>
+                         <Text className="ml-2 text-[10px] font-black text-black/60 uppercase tracking-[2px]">{t.notice}</Text>
                       </View>
                       <Text className="text-black/80 text-xs font-bold leading-5 text-center">
                         {t.socialContactNotice}
@@ -96,11 +94,9 @@ export const AmbassadorModal = ({ visible, onClose }: AmbassadorModalProps) => {
                     </View>
 
                     <View className="bg-black/5 p-4 rounded-3xl border border-black/10 mb-8">
-                      <Text className="text-[10px] font-black text-black/40 uppercase tracking-[2px] mb-1 text-center">{t.language === 'it' ? "ISTRUZIONI" : "INSTRUCTIONS"}</Text>
+                      <Text className="text-[10px] font-black text-black/40 uppercase tracking-[2px] mb-1 text-center">{t.instructions}</Text>
                       <Text className="text-black/80 text-xs font-bold leading-5 text-center">
-                        {t.language === 'it' 
-                          ? "Pubblica una storia o un post, taggaci e usa l'hashtag " 
-                          : "Share a story or a post, tag us and use the hashtag "}
+                        {t.instructionDesc}
                         <Text className="text-purple-600">#GlowyUp</Text>
                       </Text>
                     </View>

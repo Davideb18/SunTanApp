@@ -210,7 +210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                 activeOpacity={0.8}
               >
                 <LogOut size={22} color="white" />
-                <Text className="ml-3 text-lg font-black uppercase tracking-[2px] text-white">{t.signOutReset}</Text>
+                <Text className="ml-3 text-lg font-black uppercase tracking-[2px] text-white">{t.purgeData}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
