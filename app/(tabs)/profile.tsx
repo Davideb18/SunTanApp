@@ -215,8 +215,10 @@ export default function ProfileScreen() {
                 <View className="h-20 w-20 rounded-full bg-white/10 border-2 border-white/30 items-center justify-center mb-5">
                   <Lock size={32} color="white" />
                 </View>
-                <Text className="text-lg font-black text-white uppercase tracking-[3px]">{t.visualJourney}</Text>
-                <Text className="text-[11px] font-bold text-accentYellow uppercase mt-2 tracking-[1.5px] italic">{t.unlockHistory}</Text>
+                <Text className="text-lg font-black text-white uppercase tracking-[3px] text-center">{t.visualJourney}</Text>
+                <Text className="text-[11px] font-bold text-accentYellow uppercase mt-2 tracking-[1.5px] italic text-center">
+                  {t.language === "it" ? "SBLOCCA TUTTA LA CRONOLOGIA\nCON PREMIUM" : t.unlockHistory}
+                </Text>
               </View>
             </TouchableOpacity>
           ) : (
@@ -276,7 +278,7 @@ export default function ProfileScreen() {
 
         {/* 2. QUICK SETTINGS (SPF & TONE) */}
         <View className="mb-12">
-          <GlassCard style={{ padding: 22, borderRadius: 32, width: "100%", backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 2, borderColor: "white" }}>
+          <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", backgroundColor: "rgba(0,0,0,0.7)", borderWidth: 2, borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
             <View className="mb-8">
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center">
@@ -461,29 +463,57 @@ export default function ProfileScreen() {
           <View className="mb-6 flex-row items-center justify-between">
             <View className="flex-row items-center">
               <Zap size={20} color={COLORS.accentYellow} />
-              <Text className="ml-3 text-xl font-black text-white">{t.biometricsVault}</Text>
+              <View className="ml-3">
+                <Text className="text-xl font-black text-white">{t.biometricsVault}</Text>
+              </View>
             </View>
-            <View className="bg-white/10 px-3 py-1 rounded-lg border border-white/20">
-              <Text className="text-[10px] font-black text-white">PRO</Text>
+            <View className={`px-3 py-1 rounded-lg border ${hasPremium ? 'bg-accentYellow/15 border-accentYellow/30' : 'bg-white/10 border-white/20'}`}>
+              <Text className={`text-[10px] font-black ${hasPremium ? 'text-accentYellow' : 'text-white'}`}>
+                {hasPremium ? (t.language === 'it' ? 'SBLOCCATO' : 'UNLOCKED') : 'PRO'}
+              </Text>
             </View>
           </View>
 
-          <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 2, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
+           {!hasPremium ? (
+            // Locked teaser identical to Visual Journey
+            <TouchableOpacity 
+              onPress={() => setPremiumVisible(true)}
+              activeOpacity={0.9}
+              className="w-full h-48 rounded-[40px] overflow-hidden border-[3px] border-white bg-white/5 items-center justify-center shadow-2xl"
+            >
+              <LinearGradient
+               colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.95)']}
+               className="absolute inset-0"
+              />
+              <View className="absolute top-4 right-6 bg-accentYellow px-3 py-1.5 rounded-full border border-white/20">
+               <Text className="text-[10px] font-black text-black">GLOWY PRO</Text>
+              </View>
+              <View className="items-center justify-center">
+               <View className="h-20 w-20 rounded-full bg-white/10 border-2 border-white/30 items-center justify-center mb-5">
+                <Lock size={32} color="white" />
+               </View>
+               <Text className="text-lg font-black text-white uppercase tracking-[3px] text-center">{t.biometricsVault}</Text>
+               <Text className="text-[11px] font-bold text-accentYellow uppercase mt-2 tracking-[1.5px] italic text-center">{t.language === "it" ? "SBLOCCA CON PREMIUM" : t.unlockHistory}</Text>
+              </View>
+            </TouchableOpacity>
+           ) : (
+            // Full biometrics card for premium users
+            <GlassCard style={{ padding: 22, borderRadius: 48, width: "100%", borderWidth: 2, backgroundColor: "rgba(0,0,0,0.7)", borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
             {/* Vitamin D Section */}
             <View className="mb-8">
-               <View className="mb-4">
-                  <View className="flex-row items-center mb-1.5">
-                     <Sun size={16} color={COLORS.accentYellow} />
-                     <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">{t.vitDSynthesis}</Text>
-                  </View>
-                  <Text className="text-[13px] font-black text-accentYellow">{vitDGoalIU > 0 ? Math.round((weeklyVitD / vitDGoalIU) * 100) : 0}% {t.ofGoal}</Text>
-               </View>
+              <View className="mb-4">
+                <View className="flex-row items-center mb-1.5">
+                  <Sun size={16} color={COLORS.accentYellow} />
+                  <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">{t.vitDSynthesis}</Text>
+                </View>
+                <Text className="text-[13px] font-black text-accentYellow">{vitDGoalIU > 0 ? Math.round((weeklyVitD / vitDGoalIU) * 100) : 0}% {t.ofGoal}</Text>
+              </View>
               <View className="h-4 w-full bg-white/10 rounded-full overflow-hidden mb-3">
-                 <LinearGradient
-                    colors={['#FACC15', '#FB923C']}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={{ width: `${Math.min(100, vitDGoalIU > 0 ? (weeklyVitD / vitDGoalIU) * 100 : 0)}%`, height: '100%' }}
-                 />
+                <LinearGradient
+                  colors={['#FACC15', '#FB923C']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={{ width: `${Math.min(100, vitDGoalIU > 0 ? (weeklyVitD / vitDGoalIU) * 100 : 0)}%`, height: '100%' }}
+                />
               </View>
               <Text className="text-right text-[10px] font-bold text-white/40 uppercase tracking-[1px]">{weeklyVitD.toLocaleString()} / {vitDGoalIU.toLocaleString()} {t.language === 'it' ? "UI" : "IU"}</Text>
             </View>
@@ -491,36 +521,37 @@ export default function ProfileScreen() {
             {/* Tone Evolution Section */}
             <View>
               <View className="flex-row items-center justify-between mb-4">
-                 <View className="flex-row items-center">
-                    <Check size={16} color={COLORS.accentOrange} />
-                    <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">{t.toneEvolution}</Text>
-                 </View>
-                 <Text className="text-[11px] font-black text-accentOrange">{t.baselineVsCurrent}</Text>
+                <View className="flex-row items-center">
+                  <Check size={16} color={COLORS.accentOrange} />
+                  <Text className="ml-2 text-sm font-black text-white uppercase tracking-[1px]">{t.toneEvolution}</Text>
+                </View>
+                <Text className="text-[11px] font-black text-accentOrange">{t.baselineVsCurrent}</Text>
               </View>
               <View className="flex-row items-center justify-between bg-white/5 p-4 rounded-3xl border border-white/10">
-                 <View className="items-center">
-                    <View className="h-12 w-12 rounded-full border-2 border-white/20 mb-2" style={{ backgroundColor: toneStart }} />
-                    <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-white/40">{t.baseline}</Text>
-                 </View>
+                <View className="items-center">
+                  <View className="h-12 w-12 rounded-full border-2 border-white/20 mb-2" style={{ backgroundColor: toneStart }} />
+                  <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-white/40">{t.baseline}</Text>
+                </View>
                  
-                 <View className="flex-1 items-center px-4">
-                    <View className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                       <LinearGradient
-                          colors={[toneStart, toneEnd]}
-                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                          style={{ width: '100%', height: '100%' }}
-                       />
-                    </View>
-                    <Text className="mt-3 text-[10px] font-black uppercase tracking-[2px] text-white/40">{t.progression}</Text>
-                 </View>
+                <View className="flex-1 items-center px-4">
+                  <View className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                    <LinearGradient
+                      colors={[toneStart, toneEnd]}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  </View>
+                  <Text className="mt-3 text-[10px] font-black uppercase tracking-[2px] text-white/40">{t.progression}</Text>
+                </View>
 
-                 <View className="items-center">
-                    <View className="h-12 w-12 rounded-full border-2 border-accentYellow mb-2" style={{ backgroundColor: toneEnd }} />
-                    <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-accentYellow">{t.currentLabel}</Text>
-                 </View>
+                <View className="items-center">
+                  <View className="h-12 w-12 rounded-full border-2 border-accentYellow mb-2" style={{ backgroundColor: toneEnd }} />
+                  <Text className="text-[9px] font-black uppercase tracking-[1.5px] text-accentYellow">{t.currentLabel}</Text>
+                </View>
               </View>
             </View>
-          </GlassCard>
+           </GlassCard>
+           )}
         </View>
 
         {/* 4. HISTORY LIST */}
@@ -580,93 +611,33 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               ))}
 
-              {/* PREMIUM TEASER: Ghost cards for free users */}
-              {!hasPremium && history.length >= 1 && (
-                <View style={{ position: 'relative', marginTop: 10 }}>
-                  {/* Ghost card 1 */}
-                  <View className="mb-4 opacity-40" style={{ pointerEvents: 'none' }}>
-                    <View style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
-                      <View className="flex-row items-center">
-                        <View className="h-16 w-16 rounded-[22px] bg-white/10" />
-                        <View className="ml-5 flex-1">
-                          <View className="h-3 w-20 rounded-full bg-white/20 mb-2" />
-                          <View className="h-6 w-28 rounded-full bg-white/20" />
-                        </View>
-                        <View className="mr-4 items-end gap-2">
-                           <View className="h-5 w-14 rounded-lg bg-white/10" />
-                           <View className="h-5 w-14 rounded-lg bg-white/10" />
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Ghost card 2 */}
-                  <View className="mb-4 opacity-20" style={{ pointerEvents: 'none' }}>
-                    <View style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                      <View className="flex-row items-center">
-                        <View className="h-16 w-16 rounded-[22px] bg-white/5" />
-                        <View className="ml-5 flex-1">
-                          <View className="h-3 w-16 rounded-full bg-white/10 mb-2" />
-                          <View className="h-6 w-24 rounded-full bg-white/10" />
-                        </View>
-                        <View className="mr-4 items-end gap-2">
-                          <View className="h-5 w-14 rounded-lg bg-white/5" />
-                          <View className="h-5 w-14 rounded-lg bg-white/5" />
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Ghost card 3 - Nero Chiaro */}
-                  <View className="mb-4 opacity-10" style={{ pointerEvents: 'none' }}>
-                    <View style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(20,20,20,1)' }}>
-                      <View className="flex-row items-center justify-center">
-                         <Text className="text-[10px] font-black text-white/20 uppercase tracking-[2px]">SBLOCCA CON PREMIUM</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Ghost card 4 - Grigio Chiaro Graduato */}
-                  <View className="mb-6 opacity-5" style={{ pointerEvents: 'none' }}>
-                    <LinearGradient
-                      colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.02)']}
-                      style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.03)' }}
-                    >
-                      <View className="flex-row items-center justify-center">
-                         <Text className="text-[9px] font-black text-white/10 uppercase tracking-[3px]">PRO LEVEL ONLY</Text>
-                      </View>
-                    </LinearGradient>
-                  </View>
-
-                  {/* Gradient fade + unlock CTA overlay */}
+              {/* PREMIUM TEASER: Single unlock premium box for free users */}
+              {!hasPremium && history.length > 0 && (
+                <TouchableOpacity 
+                  onPress={() => setPremiumVisible(true)}
+                  activeOpacity={0.7}
+                  className="mb-6 shadow-2xl"
+                >
                   <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,1)']}
-                    style={{ position: 'absolute', bottom: -20, left: 0, right: 0, height: 320, borderRadius: 36, justifyContent: 'flex-end', paddingBottom: 40, alignItems: 'center' }}
+                    colors={['rgba(90, 90, 90, 0.9)', 'rgba(50, 50, 50, 0.8)']}
+                    start={{ x: 0, y: 0 }} 
+                    end={{ x: 1, y: 1 }}
+                    style={{ borderRadius: 36, padding: 20, borderWidth: 1.5, borderColor: 'rgba(140, 140, 140, 0.35)' }}
                   >
-                    <TouchableOpacity
-                      onPress={() => setPremiumVisible(true)}
-                      activeOpacity={0.8}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: COLORS.accentYellow,
-                        paddingHorizontal: 32,
-                        paddingVertical: 16,
-                        borderRadius: 32,
-                        shadowColor: COLORS.accentYellow,
-                        shadowOpacity: 0.5,
-                        shadowRadius: 15,
-                        elevation: 10,
-                        gap: 10,
-                      }}
-                    >
-                      <Lock size={18} color="black" />
-                      <Text style={{ color: "black", fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 1.5 }}>
-                        {t.language === 'it' ? `Sblocca Cronologia Completa` : `Unlock Full History`}
-                      </Text>
-                    </TouchableOpacity>
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center flex-1">
+                        <View className="h-16 w-16 items-center justify-center rounded-[22px] bg-white/15 border-2 border-white/25">
+                          <Lock size={24} color="white" opacity={0.6} />
+                        </View>
+                        <View className="ml-5">
+                          <Text className="text-[12px] font-black text-white/65 uppercase tracking-[1px]">{t.language === 'it' ? 'Sblocca Premium' : 'Unlock Premium'}</Text>
+                          <Text className="text-[16px] font-black text-white mt-1">{t.language === 'it' ? 'Tutte le Sessioni' : 'All Sessions'}</Text>
+                        </View>
+                      </View>
+                      <ChevronRight size={20} color="rgba(255, 255, 255, 0.25)" />
+                    </View>
                   </LinearGradient>
-                </View>
+                </TouchableOpacity>
               )}
             </>
           )}

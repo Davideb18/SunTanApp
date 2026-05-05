@@ -50,36 +50,34 @@ export function UpsellBanner({ onDismiss, onPress }: UpsellBannerProps) {
       style={{
         position: "absolute",
         bottom: insets.bottom + 115, // Raised higher to clear the tab bar hump
-        left: 16,
-        right: 16,
+        left: 32,
+        right: 32,
         transform: [{ translateY: slideAnim }],
         opacity: opacityAnim,
         zIndex: 999,
       }}
     >
-      <LinearGradient
-        colors={["#FACC15", "#F97316", "#EF4444"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
+      <View
         style={{
-          borderRadius: 28,
-          padding: 2,
-          // Cloud-like shadow
-          shadowColor: "#F97316",
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.5,
-          shadowRadius: 20,
-          elevation: 20,
+          borderRadius: 20,
+          borderWidth: 0,
+          borderColor: "transparent",
+          backgroundColor: "#FFFFFF",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 10,
         }}
       >
         <TouchableOpacity
           onPress={onPress}
-          activeOpacity={0.9}
+          activeOpacity={0.8}
           style={{
-            backgroundColor: "rgba(0,0,0,0.85)",
-            borderRadius: 26,
-            paddingHorizontal: 18,
-            paddingVertical: 14,
+            backgroundColor: "#FFFFFF",
+            borderRadius: 20,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
             flexDirection: "row",
             alignItems: "center",
           }}
@@ -87,37 +85,35 @@ export function UpsellBanner({ onDismiss, onPress }: UpsellBannerProps) {
           {/* Icon */}
           <View
             style={{
-              height: 38,
-              width: 38,
-              borderRadius: 14,
-              backgroundColor: "rgba(250,204,21,0.15)",
+              height: 28,
+              width: 28,
+              borderRadius: 8,
+              backgroundColor: "rgba(250,204,21,0.2)",
               alignItems: "center",
               justifyContent: "center",
-              borderWidth: 1,
-              borderColor: "rgba(250,204,21,0.3)",
-              marginRight: 12,
+              marginRight: 10,
             }}
           >
-            <Sparkles size={18} color="#FACC15" />
+            <Sparkles size={14} color="#F59E0B" />
           </View>
 
           {/* Text */}
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: "900",
-                color: "white",
-                letterSpacing: -0.3,
+                color: "black",
+                letterSpacing: -0.2,
               }}
             >
-              ✨ {t.unlockPro}
+              {t.unlockPro}
             </Text>
             <Text
               style={{
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: "700",
-                color: "rgba(255,255,255,0.5)",
+                color: "rgba(0,0,0,0.4)",
                 marginTop: 1,
               }}
             >
@@ -130,19 +126,19 @@ export function UpsellBanner({ onDismiss, onPress }: UpsellBannerProps) {
             onPress={onDismiss}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{
-              height: 28,
-              width: 28,
-              borderRadius: 14,
-              backgroundColor: "rgba(255,255,255,0.1)",
+              height: 24,
+              width: 24,
+              borderRadius: 12,
+              backgroundColor: "rgba(0,0,0,0.05)",
               alignItems: "center",
               justifyContent: "center",
               marginLeft: 8,
             }}
           >
-            <X size={14} color="rgba(255,255,255,0.6)" />
+            <X size={14} color="rgba(0,0,0,0.4)" />
           </TouchableOpacity>
         </TouchableOpacity>
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }

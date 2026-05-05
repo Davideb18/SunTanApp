@@ -255,8 +255,8 @@ export default function WeatherScreen() {
       if (status !== "granted") return;
 
       const bodyText = tomorrowForecast.hasDryFallback
-        ? `UV peak is rainy (${peakRainProbability}%). Suggested fallback window: ${strategyStart} - ${strategyEnd} (rain ${strategyRainProbability}%, not optimal).`
-        : `Rain expected during UV peak (${peakRainProbability}%). No dry optimal window available tomorrow.`;
+        ? `UV peak is rainy (${peakRainProbability}%). Best window: ${strategyStart} - ${strategyEnd} (${strategyRainProbability}% rain).`
+        : `Rain expected during UV peak (${peakRainProbability}%). No dry window available tomorrow.`;
 
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -526,23 +526,14 @@ export default function WeatherScreen() {
                       </View>
                     </View>
                     <View className="flex-1 ml-8 pl-6 border-l border-white/10">
-                      {tomorrowForecast?.rainExpected ? (
-                        <View>
-                          <View className="flex-row items-center mb-2">
-                            <AlertTriangle size={12} color="#F97316" />
-                            <Text className="ml-2 text-[10px] font-black uppercase tracking-[1px] text-[#F97316]">{t.rainAlert}</Text>
-                          </View>
-                          <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
-                            {tomorrowForecast.hasDryFallback
-                              ? <>Rain expected at UV peak (<Text className="text-white font-black">{peakRainProbability}%</Text>). Suggested window: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text> (<Text className="text-white font-black">{strategyRainProbability}%</Text> rain, not optimal).</>
-                              : <>Rain expected at UV peak (<Text className="text-white font-black">{peakRainProbability}%</Text>). No dry optimal window tomorrow; reference slot: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>.</>}
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text className="text-[11px] font-bold text-white/60 leading-[16px]">
-                          {t.optimalWindow}: <Text className="text-white font-black">{strategyStart} - {strategyEnd}</Text>. {t.rainProbability}: <Text className="text-white font-black">{strategyRainProbability}%</Text>. {t.useSpf} 30+.
+                      <Text className="text-[11px] font-bold text-white/70 leading-[16px] mb-2">
+                        Today's highest UV is <Text className="text-accentYellow font-black">{(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text> at <Text className="text-white font-black">{strategyStart}</Text> (<Text className="text-white font-black">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°C</Text>).
+                      </Text>
+                      <View className={`flex-row items-center px-3 py-1.5 rounded-lg ${tomorrowForecast?.rainExpected ? 'bg-[#F97316]/10 border border-[#F97316]/30' : 'bg-accentYellow/10 border border-accentYellow/30'}`}>
+                        <Text className={`text-[10px] font-black uppercase tracking-[1px] ${tomorrowForecast?.rainExpected ? 'text-[#F97316]' : 'text-accentYellow'}`}>
+                          {tomorrowForecast?.rainExpected ? '❌ Not Recommended' : '✅ Recommended'}
                         </Text>
-                      )}
+                      </View>
                     </View>
                  </View>
                )}

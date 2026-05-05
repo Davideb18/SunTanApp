@@ -114,27 +114,27 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
     {
       key: "annual",
       pack: annual,
-      label: "Annual Elite",
+      label: t.annualElite,
       period: t.language === "it" ? "/ anno" : "/ year",
-      badge: "CONVIENE",
+      badge: t.bestDeal,
       saving: t.language === "it" ? "RISPARMIA 58%" : "SAVE 58%",
       fallbackPrice: "€24.99",
-      trial: "7 GIORNI GRATIS",
+      trial: t.sevenDayTrial,
     },
     {
       key: "quarterly",
       pack: quarterly,
-      label: "3 Months Pro",
+      label: t.quarterlyPro,
       period: t.language === "it" ? "/ 3 mesi" : "/ 3 months",
-      badge: "POPULAR",
+      badge: t.popular,
       saving: null,
       fallbackPrice: "€12.99",
-      trial: "3 GIORNI GRATIS",
+      trial: t.threeDayTrial,
     },
     {
       key: "monthly",
       pack: monthly,
-      label: "Monthly Pass",
+      label: t.monthlyPass,
       period: t.language === "it" ? "/ mese" : "/ month",
       badge: null,
       saving: null,
@@ -177,7 +177,7 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
   const FEATURES = [
     {
       id: "coach",
-      title: "AI Smart Coach",
+      title: t.language === 'it' ? "AI Smart Coach" : "AI Smart Coach",
       icon: <Zap />,
       content: (
         <View className="rounded-2xl bg-black/40 p-4 border border-white/10">
@@ -215,7 +215,7 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
     },
     {
       id: "skin",
-      title: "Skin Intelligence",
+      title: t.language === 'it' ? "Intelligenza Pelle" : "Skin Intelligence",
       icon: <ShieldCheck />,
       content: (
         <View className="rounded-2xl bg-black/40 p-4 border border-white/10">
@@ -252,7 +252,7 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: "#000" }}>
         <LinearGradient
-          colors={["#FF4D00", "#FF8C00", "#000000"]}
+          colors={["#FFD700", "#FF4500", "#000000"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
@@ -275,10 +275,10 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
           <View className="flex-1 px-6" style={{ paddingTop: Platform.OS === 'ios' ? 70 : 50, paddingBottom: 30 }}>
             
             {/* Header - More Spacious */}
-            <View className="flex-row justify-between items-start mb-8">
-              <View>
-                <Text className="text-5xl font-black text-white italic tracking-[-2px]">Glowy Pro</Text>
-                <Text className="text-[11px] font-black text-white/70 uppercase tracking-[4px] mt-1.5">
+            <View className="flex-row justify-between items-start mb-8 gap-4">
+              <View className="flex-1 shrink">
+                <Text className="text-5xl font-black text-white italic tracking-[-2px]" numberOfLines={1} adjustsFontSizeToFit>Glowy Pro</Text>
+                <Text className="text-[11px] font-black text-white/70 uppercase tracking-[4px] mt-1.5 flex-wrap">
                   {t.premiumSubtitle}
                 </Text>
               </View>
@@ -287,7 +287,7 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                   onPress={() => {
                     if (canClose) onClose();
                   }}
-                  className="h-12 w-12 items-center justify-center rounded-full bg-white/20 border-[3px] border-white"
+                  className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full bg-white/20 border-[3px] border-white ml-2"
                   style={({ pressed }) => ({
                     opacity: canClose && pressed ? 0.7 : 1
                   })}
@@ -299,7 +299,7 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
 
             <ScrollView 
               showsVerticalScrollIndicator={false} 
-              contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+              contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
               scrollEnabled={true}
             >
               
@@ -355,52 +355,44 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                 })}
               </View>
 
-              {/* CTA - Larger and Brighter */}
-              <Pressable
+              {/* CTA Button */}
+              <TouchableOpacity
                 onPress={handlePurchase}
                 disabled={loading}
-                style={({ pressed }) => ({
-                  height: 80,
-                  backgroundColor: 'white',
-                  borderRadius: 32,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  shadowColor: '#fff',
-                  shadowOffset: { width: 0, height: 10 },
+                activeOpacity={0.8}
+                className="w-full h-20 bg-white rounded-[28px] items-center justify-center mb-6"
+                style={{
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 8 },
                   shadowOpacity: 0.3,
-                  shadowRadius: 20,
+                  shadowRadius: 16,
                   elevation: 10,
-                  marginBottom: 32,
-                  opacity: pressed ? 0.8 : 1
-                })}
+                }}
               >
                 {loading ? <ActivityIndicator color="black" /> : (
                   <View className="flex-row items-center">
                     <Zap size={24} color="black" fill="black" className="mr-3" />
-                    <Text className="text-xl font-black text-black uppercase tracking-[1.5px]">{t.language === 'it' ? "PROVA GRATIS ORA" : "START FREE TRIAL"}</Text>
+                    <Text className="text-xl font-black text-black uppercase tracking-[1.5px]">
+                      {plans[selectedIndex]?.trial
+                        ? (t.language === 'it' ? "PROVA GRATIS ORA" : "START FREE TRIAL")
+                        : (t.language === 'it' ? "SBLOCCA PREMIUM" : "GET PREMIUM")
+                      }
+                    </Text>
                   </View>
                 )}
-              </Pressable>
+              </TouchableOpacity>
 
               {/* Footer */}
               <View className="flex-row justify-center gap-x-12 mb-6">
-                <Pressable 
+                <TouchableOpacity 
                   onPress={handleRestore}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                  activeOpacity={0.6}
                 >
                   <Text className="text-[12px] font-black text-white/50 uppercase tracking-[2px]">{t.language === 'it' ? "RIPRISTINA" : "RESTORE"}</Text>
-                </Pressable>
-                {Platform.OS === "ios" && (
-                  <Pressable 
-                    onPress={presentCodeRedemptionSheet}
-                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-                  >
-                    <Text className="text-[12px] font-black text-white/50 uppercase tracking-[2px]">{t.language === 'it' ? "USA CODICE" : "USE CODE"}</Text>
-                  </Pressable>
-                )}
+                </TouchableOpacity>
               </View>
 
-              <Text className="text-[10px] text-white/30 font-bold text-center leading-4 px-10 pb-6">
+              <Text className="text-[10px] text-white/30 font-bold text-center leading-4 px-10">
                 {t.premiumDisclaimer}
               </Text>
 
