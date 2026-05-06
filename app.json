@@ -15,8 +15,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.davideberno.glowy",
-      "buildNumber": "4",
+
       "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "remote-notification"
+        ],
         "NSLocationWhenInUseUsageDescription": "Glowy uses your location to show UV index. / Glowy usa la tua posizione per mostrarti l'indice UV della tua zona.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Glowy uses your location to monitor UV index and protect your skin. / Glowy usa la tua posizione per monitorare l'indice UV e proteggere la tua pelle.",
         "NSLocationAlwaysUsageDescription": "Glowy monitors UV index based on your location to send you safety alerts. / Glowy monitora l'indice UV in base alla tua posizione per inviarti avvisi di sicurezza.",
@@ -51,7 +55,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/images/icona.png",
           "color": "#FACC15",
           "defaultChannel": "default",
           "sounds": []
