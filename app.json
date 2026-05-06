@@ -2,17 +2,20 @@
   "expo": {
     "name": "Glowy",
     "slug": "glowy",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icona.png",
     "userInterfaceStyle": "dark",
     "scheme": "glowy",
     "splash": {
+      "image": "./assets/images/logo.png",
+      "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.davideberno.glowy",
+      "buildNumber": "4",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Glowy uses your location to show UV index. / Glowy usa la tua posizione per mostrarti l'indice UV della tua zona.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Glowy uses your location to monitor UV index and protect your skin. / Glowy usa la tua posizione per monitorare l'indice UV e proteggere la tua pelle.",
@@ -33,7 +36,6 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [

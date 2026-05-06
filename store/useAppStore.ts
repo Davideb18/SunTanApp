@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { schedulePhaseEndNotification, cancelPhaseEndNotification, scheduleDailySunNotification, scheduleSafetyAlert, scheduleStreakWarningNotification } from "../utils/notifications";
+import { getSkinMultiplier } from "../utils/skin";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -276,6 +277,46 @@ export const useAppStore = create<AppState>()(
             }
           }
 
+          // DYNAMIC SESSION ADJUSTMENT:
+          // If a coach session is active, recalculate duration based on new UV
+          let sessionUpdates = {};
+          if (state.isSessionActive && state.currentSessionMode === "coach" && state.sessionStatus === "active") {
+            const spentSeconds = state.sessionTimeTotal - state.sessionTimeRemaining;
+            
+            // Recalculate what the TOTAL duration should be now
+            const baseMinutes = state.lastEngineMode === "coach" ? 20 : state.dailyGoalMinutes; // fallback or heuristic
+            const skinFactor = getSkinMultiplier(state.fitzpatrickLevel || 2);
+            const uvFactor = Math.max(0.35, Math.min(2.5, 9 / Math.max(1, currentUv)));
+            
+            // This logic should match deriveCoachPlan in the screen
+            const newTotalMinutes = Math.min(60, Math.max(5, Math.round(20 * uvFactor * skinFactor)));
+            const newTotalSeconds = newTotalMinutes * 60;
+            
+            if (newTotalSeconds !== state.sessionTimeTotal) {
+              const newRemaining = Math.max(0, newTotalSeconds - spentSeconds);
+              
+              // If new time is exceeded, finish immediately
+              if (newRemaining <= 0) {
+                sessionUpdates = {
+                  sessionStatus: "done",
+                  isSessionActive: false,
+                  sessionTimeRemaining: 0
+                };
+                cancelPhaseEndNotification();
+              } else {
+                // Adjust current phase and total
+                sessionUpdates = {
+                  sessionTimeTotal: newTotalSeconds,
+                  sessionTimeRemaining: newRemaining
+                };
+                // Reschedule notification for the new remaining time
+                if (state.notificationsEnabled) {
+                  schedulePhaseEndNotification(state.sessionPhases[state.currentPhaseIndex].label, newRemaining);
+                }
+              }
+            }
+          }
+
           return {
             cachedCurrentUv: currentUv,
             currentTemp,
@@ -285,6 +326,7 @@ export const useAppStore = create<AppState>()(
             utcOffset: utcOffset ?? state.utcOffset,
             lastWeatherFetch: Date.now(),
             lastSafetyAlertDate: updatedSafetyDate,
+            ...sessionUpdates
           };
         });
       },

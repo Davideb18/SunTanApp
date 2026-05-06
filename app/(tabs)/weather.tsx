@@ -24,6 +24,7 @@ import { useTranslation } from "@/constants/i18n";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AmbassadorModal } from "@/components/AmbassadorModal";
 import { AmbassadorCard } from "../../components/AmbassadorCard";
+import { getSkinMultiplier } from "@/utils/skin";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -241,9 +242,9 @@ export default function WeatherScreen() {
 
   const getSafeWindow = (uv: number) => {
     if (uv <= 0) return "∞";
-    // Skin factor: darker skin (higher level) = longer safe window
-    const skinFactor = (fitzpatrickLevel || 2) * 0.8; 
-    const minutes = Math.round((120 * skinFactor) / Math.max(uv, 0.5));
+    const skinFactor = getSkinMultiplier(fitzpatrickLevel || 2); 
+    // Align with Coach logic: (180 * skinFactor) / UV
+    const minutes = Math.round((180 * skinFactor) / Math.max(uv, 0.5));
     
     if (minutes > 240) return "4h+";
     if (minutes > 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
@@ -516,11 +517,13 @@ export default function WeatherScreen() {
                     <Calendar size={18} color={COLORS.accentYellow} />
                     <Text className="ml-3 text-base font-black text-white">{t.tomorrowStrategy}</Text>
                   </View>
-                  <View className={`px-3 py-1 rounded-xl border ${tomorrowRecommended ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
-                    <Text className={`text-[10px] font-black uppercase ${tomorrowRecommended ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {tomorrowRecommendationLabel} · {strategyStart}
-                    </Text>
-                  </View>
+                  {hasPremium && (
+                    <View className={`px-3 py-1 rounded-xl border ${tomorrowRecommended ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                      <Text className={`text-[10px] font-black uppercase ${tomorrowRecommended ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {tomorrowRecommendationLabel} · {strategyStart}
+                      </Text>
+                    </View>
+                  )}
                </View>
 
                {!hasPremium ? (

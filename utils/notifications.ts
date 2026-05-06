@@ -42,6 +42,7 @@ export async function schedulePhaseEndNotification(phaseLabel: string, durationS
   const isIt = language === 'it';
 
   phaseNotificationId = await Notifications.scheduleNotificationAsync({
+    identifier: 'phase-end',
     content: {
       title: isIt ? "Fase Completata! ☀️" : "Phase Complete! ☀️",
       body: isIt 
@@ -69,12 +70,16 @@ let dailyPreSessionId: string | null = null;
 let sessionStartId: string | null = null;
 let safetyAlertId: string | null = null;
 
-export async function scheduleDailySunNotification(hourlyUvData: number[], currentTemp: number, currentUv: number) {
+export async function scheduleDailySunNotification(hourlyUvData: number[], currentTemp: number, currentUv: number, cloudCover: number = 0, weatherCode: number = 0) {
   const { language } = useAppStore.getState();
   const isIt = language === 'it';
   
-  // Clear all previous notifications to ensure clean state
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  // Cancel ONLY the daily sun advice notification, not all notifications
+  try {
+    await Notifications.cancelScheduledNotificationAsync('daily-sun-advice');
+  } catch (error) {
+    // Notification doesn't exist yet, that's fine
+  }
 
   let peakUv = 0;
   let peakHour = -1;
@@ -85,36 +90,49 @@ export async function scheduleDailySunNotification(hourlyUvData: number[], curre
     }
   });
 
-  // 1. Morning Notification at 8:30 AM (local phone time)
+  // CRITICAL CONDITIONS FOR MORNING NOTIFICATION
+  // 1. UV must be HIGH (>= 3)
+  // 2. Sky must NOT be covered (cloudCover < 50%)
+  // 3. No rain/wet weather (weatherCode not in rain range: 51-99)
+  // 4. Session must be recommended (3 <= UV <= 8)
+  const isRainyWeather = weatherCode >= 51 && weatherCode <= 99;
+  const isSkyTooCloudyNow = cloudCover > 50;
+  const isSessionRecommended = peakUv >= 3 && peakUv <= 8;
+  
+  // Only schedule notification if ALL conditions are met
+  if (peakUv < 3 || isSkyTooCloudyNow || isRainyWeather || !isSessionRecommended) {
+    console.log(`[Notifications] Morning notification NOT scheduled - UV: ${peakUv}, CloudCover: ${cloudCover}%, WeatherCode: ${weatherCode}, Recommended: ${isSessionRecommended}`);
+    return; // Don't send notification
+  }
+
+  // Morning Notification at 8:30 AM (local phone time)
   const morningHour = 8;
   const morningMinute = 30;
 
-  let morningTitle = isIt ? "Buongiorno! 🌅" : "Good Morning! 🌅";
-  let morningBody = "";
-  
-  const recommended = peakUv >= 3 && peakUv <= 8;
-  const hourLabel = peakHour >= 0 ? `${peakHour}:00` : "--:--";
+  const trigger: any = {
+    type: Notifications.SchedulableTriggerInputTypes.DAILY,
+    hour: morningHour,
+    minute: morningMinute,
+  };
 
-  if (peakUv >= 3) {
-    morningBody = isIt
-      ? `${recommended ? 'Sì' : 'No'} — ${recommended ? 'Consigliata' : 'Sconsigliata'}: verso le ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C).`
-      : `${recommended ? 'Yes' : 'No'} — ${recommended ? 'Recommended' : 'Not recommended'}: around ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C).`;
-  } else {
-    morningBody = isIt ? "Oggi l'indice UV è basso. Goditi la giornata!" : "Low UV today. Enjoy your day!";
-  }
+  let morningTitle = isIt ? "Buongiorno! 🌅" : "Good Morning! 🌅";
+  const hourLabel = peakHour >= 0 ? `${peakHour}:00` : "--:--";
+  const morningBody = isIt
+    ? `Sessione ideale alle ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C). Cielo sereno!`
+    : `Ideal session at ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C). Clear skies!`;
 
   await Notifications.scheduleNotificationAsync({
+    identifier: 'daily-sun-advice',
     content: { title: morningTitle, body: morningBody, sound: true },
-    trigger: { 
-      type: Notifications.SchedulableTriggerInputTypes.DAILY, 
-      hour: morningHour, 
-      minute: morningMinute 
-    } as any,
+    trigger,
   });
+  
+  console.log(`[Notifications] Morning notification scheduled for 8:30 AM`);
 
   // 2. Safety alert if CURRENT REAL GPS UV is extreme
   if (currentUv > 8) {
     await Notifications.scheduleNotificationAsync({
+      identifier: 'uv-burn-risk',
       content: {
         title: isIt ? "Attenzione: Alto Rischio di Scottatura! ⚠️" : "High Burn Risk! ⚠️",
         body: isIt
@@ -133,6 +151,7 @@ export async function scheduleSafetyAlert(uvIndex: number, currentTemp: number) 
   const isIt = language === 'it';
 
   await Notifications.scheduleNotificationAsync({
+    identifier: 'safety-alert',
     content: {
       title: isIt ? "Allerta Meteo Estrema! ⚠️" : "Extreme Weather Alert! ⚠️",
       body: isIt
@@ -198,6 +217,7 @@ export async function scheduleStreakWarningNotification() {
 
   if (now.getTime() < warningTime.getTime()) {
     streakWarningId = await Notifications.scheduleNotificationAsync({
+      identifier: 'streak-warning',
       content: {
         title: isIt ? "🔥 Streack in Pericolo!" : "🔥 Streak at Risk!",
         body: isIt

@@ -22,6 +22,7 @@ import Svg, { Circle } from "react-native-svg";
 import { useTranslation } from "@/constants/i18n";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AmbassadorModal } from "@/components/AmbassadorModal";
+import { getSkinMultiplier } from "@/utils/skin";
 
 type CoachIntensity = "gentle" | "balanced" | "strong";
 
@@ -43,18 +44,6 @@ const COACH_CREAM_MULTIPLIERS: Record<number, number> = {
   15: 1.5,
   30: 2.2,
   50: 3.5,
-};
-
-const getCoachSkinMultiplier = (level: number) => {
-  const multipliers: Record<number, number> = {
-    1: 0.45,  // Very fair: very conservative
-    2: 1.0,   // Fair: baseline
-    3: 1.6,   // Medium
-    4: 2.5,   // Olive
-    5: 4.0,   // Dark Brown
-    6: 6.0,   // Black: conservative limit
-  };
-  return multipliers[level] || 1.0;
 };
 
 const getCoachIntensityMultiplier = (intensity: CoachIntensity) => {
@@ -91,7 +80,7 @@ const deriveCoachPlan = (params: {
 
   // Conservative UV factor: more aggressive reduction as UV increases
   const uvFactor = Math.max(0.35, Math.min(2.5, 9 / Math.max(1, params.uvIndex)));
-  const skinFactor = getCoachSkinMultiplier(params.skinLevel);
+  const skinFactor = getSkinMultiplier(params.skinLevel);
   const creamFactor = COACH_CREAM_MULTIPLIERS[params.creamSpf] ?? 1;
   const intensityFactor = getCoachIntensityMultiplier(params.intensity);
 
@@ -217,6 +206,7 @@ export default function TrackerScreen() {
   const [localMode, setLocalMode] = useState<EngineMode>("personal");
   const [personalMinutes, setPersonalMinutes] = useState(dailyGoalMinutes || 20);
   const [coachMinutes, setCoachMinutes] = useState(20);
+  const [displayedCoachMinutes, setDisplayedCoachMinutes] = useState(20);
   const [coachSkinLevel, setCoachSkinLevel] = useState(fitzpatrickLevel || 1);
   const [coachCreamSpf, setCoachCreamSpf] = useState(currentSpf);
   const [coachIntensity, setCoachIntensity] = useState<CoachIntensity>("balanced");
@@ -239,6 +229,21 @@ export default function TrackerScreen() {
     }
   }, [dailyGoalMinutes]);
 
+  // Sincronizza il display quando cambiano i fattori (crema, pelle, UV, intensità)
+  useEffect(() => {
+    // Calcola il valore "suggerito" dall'app basato su UV e altri fattori
+    // Usa baseMinutes=20 come valore base fisso (non moltiplicato di nuovo)
+    const plan = deriveCoachPlan({
+      baseMinutes: 20,
+      skinLevel: coachSkinLevel,
+      creamSpf: coachCreamSpf,
+      intensity: coachIntensity,
+      uvIndex: cachedCurrentUv,
+    });
+    // Sincronizza il display al nuovo valore calcolato
+    setDisplayedCoachMinutes(Math.max(5, Math.min(60, plan.effectiveMinutes)));
+  }, [coachCreamSpf, coachSkinLevel, cachedCurrentUv, coachIntensity]);
+
   // Centra automaticamente la fase attiva quando currentPhaseIndex cambia
   useEffect(() => {
     if (!isSessionActive || !phaseScrollRef.current) return;
@@ -255,17 +260,14 @@ export default function TrackerScreen() {
   const skinType = FITZPATRICK_TYPES.find((type) => type.level === coachSkinLevel) || FITZPATRICK_TYPES[0];
   const currentUvNumber = Math.round(cachedCurrentUv);
   const uvBand = getUvBand(currentUvNumber);
-  const coachPlan = deriveCoachPlan({
-    baseMinutes: coachMinutes,
-    skinLevel: coachSkinLevel,
-    creamSpf: coachCreamSpf,
-    intensity: coachIntensity,
-    uvIndex: cachedCurrentUv,
-  });
-  const isUvStopped = Boolean(coachPlan.isStopped);
-  const effectiveCoachMinutes = coachPlan.effectiveMinutes;
-  const coachCycles = coachPlan.cycles;
-  const coachRotationMinutes = coachPlan.minutesPerCycle;
+  
+  // Calcola i cicli DIRETTAMENTE dal displayedCoachMinutes (che è già il tempo totale finale)
+  // NON moltiplicare di nuovo per i fattori!
+  const isUvStopped = cachedCurrentUv <= 0;
+  const targetRotationMinutes = coachIntensity === "gentle" ? 10 : coachIntensity === "strong" ? 5 : 6;
+  const coachCycles = isUvStopped ? 0 : Math.max(2, Math.min(6, Math.round(displayedCoachMinutes / targetRotationMinutes)));
+  const coachRotationMinutes = isUvStopped ? 0 : Math.max(1, Math.round(displayedCoachMinutes / coachCycles));
+  const effectiveCoachMinutes = displayedCoachMinutes; // Il valore finale IS il displayedCoachMinutes!
 
   useEffect(() => {
     let interval: any = null;
@@ -730,7 +732,12 @@ export default function TrackerScreen() {
                     key={delta}
                     onPress={() => {
                       if (isUvStopped) return;
-                      setCoachMinutes((value: number) => Math.max(5, Math.min(180, value + delta)));
+                      // Apply DIRECT delta to the displayed value without multiplier division
+                      setDisplayedCoachMinutes((value: number) => {
+                        const nextValue = value + delta;
+                        // Hard limits: 5-60 minutes absolute
+                        return Math.max(5, Math.min(60, nextValue));
+                      });
                     }}
                     disabled={isUvStopped}
                     className={`min-w-[72px] items-center justify-center rounded-2xl px-3 py-3 mr-3 ${isUvStopped ? "bg-white/5" : "bg-white/10"}`}
@@ -742,7 +749,7 @@ export default function TrackerScreen() {
               <Text className="mt-3 text-center text-[11px] font-medium text-white/50">
                 {isUvStopped 
                   ? t.uvZeroPlanStopped 
-                  : `${t.actualTimerRotations}: ${effectiveCoachMinutes} min • ${coachCycles} ${t.rotations.toLowerCase()}`}
+                  : `${t.actualTimerRotations}: ${coachMinutes} min • ${coachCycles} ${t.rotations.toLowerCase()}`}
               </Text>
             </View>
 

@@ -15,8 +15,14 @@ export async function refreshGPSNotifications() {
     // Fetch weather ONLY for real GPS, ignoring mockLocation
     const data = await fetchWeatherData(location.coords.latitude, location.coords.longitude);
     
-    // Schedule notifications using this REAL data
-    await scheduleDailySunNotification(data.hourlyUvData, data.currentTemp, data.currentUv);
+    // Schedule notifications using this REAL data + weather conditions
+    await scheduleDailySunNotification(
+      data.hourlyUvData, 
+      data.currentTemp, 
+      data.currentUv,
+      data.cloudCover,
+      data.weatherCode
+    );
     
     console.log("[NotificationEngine] GPS-locked notifications updated for", data.locationName);
   } catch (error) {
