@@ -69,7 +69,13 @@ let dailyPreSessionId: string | null = null;
 let sessionStartId: string | null = null;
 let safetyAlertId: string | null = null;
 
-export async function scheduleDailySunNotification(hourlyUvData: number[], currentTemp: number) {
+export async function scheduleDailySunNotification(hourlyUvData: number[], currentTemp: number, currentUv: number) {
+  const { language } = useAppStore.getState();
+  const isIt = language === 'it';
+  
+  // Clear all previous notifications to ensure clean state
+  await Notifications.cancelAllScheduledNotificationsAsync();
+
   let peakUv = 0;
   let peakHour = -1;
   hourlyUvData.forEach((uv, i) => {
@@ -79,101 +85,41 @@ export async function scheduleDailySunNotification(hourlyUvData: number[], curre
     }
   });
 
-  const now = new Date();
-  const nowHour = now.getHours();
-  const centerIndex = Math.floor(hourlyUvData.length / 2);
-  // compute actual hour in local time for the peak found in the centered hourlyUvData
-  const actualPeakHour = peakHour >= 0 ? ((nowHour - centerIndex + peakHour + 24) % 24) : -1;
-  const { language } = useAppStore.getState();
-  const isIt = language === 'it';
-  
-  if (dailyMorningId) await Notifications.cancelScheduledNotificationAsync(dailyMorningId);
-  if (dailyPreSessionId) await Notifications.cancelScheduledNotificationAsync(dailyPreSessionId);
-  if (sessionStartId) await Notifications.cancelScheduledNotificationAsync(sessionStartId);
-  if (safetyAlertId) await Notifications.cancelScheduledNotificationAsync(safetyAlertId);
-
-  // 1. Morning Notification at 8:30 AM (recurring daily)
+  // 1. Morning Notification at 8:30 AM (local phone time)
   const morningHour = 8;
   const morningMinute = 30;
 
   let morningTitle = isIt ? "Buongiorno! 🌅" : "Good Morning! 🌅";
-  let morningBody = isIt
-    ? "Oggi l'indice UV è basso. Goditi la giornata!"
-    : "Low UV today. Enjoy your day!";
+  let morningBody = "";
+  
+  const recommended = peakUv >= 3 && peakUv <= 8;
+  const hourLabel = peakHour >= 0 ? `${peakHour}:00` : "--:--";
 
-  // Determine recommendation: yes if UV in moderate-high but not extreme
-  const recommended = peakUv >= 3 && peakUv <= 8 && actualPeakHour !== -1;
-  if (peakUv >= 3 && peakHour !== -1) {
-    const hourLabel = actualPeakHour !== -1 ? `${actualPeakHour}:00` : `${peakHour}:00`;
+  if (peakUv >= 3) {
     morningBody = isIt
-      ? `${recommended ? 'Sì' : 'No'} — ${recommended ? 'Consigliato' : 'Sconsigliato'}: periodo intorno alle ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C).`
+      ? `${recommended ? 'Sì' : 'No'} — ${recommended ? 'Consigliata' : 'Sconsigliata'}: verso le ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C).`
       : `${recommended ? 'Yes' : 'No'} — ${recommended ? 'Recommended' : 'Not recommended'}: around ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C).`;
-  } else if (peakUv > 8) {
-    morningBody = isIt
-      ? `Attenzione: UV estremo oggi (${Math.round(peakUv)}). Meglio evitare le ore centrali.`
-      : `Caution: Extreme UV today (${Math.round(peakUv)}). Avoid peak hours.`;
+  } else {
+    morningBody = isIt ? "Oggi l'indice UV è basso. Goditi la giornata!" : "Low UV today. Enjoy your day!";
   }
 
-  // use calendar trigger with repeats for daily morning notification
-  dailyMorningId = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: morningTitle,
-      body: morningBody,
-      sound: true,
-    },
-    trigger: {
-      hour: morningHour,
-      minute: morningMinute,
-      repeats: true,
+  await Notifications.scheduleNotificationAsync({
+    content: { title: morningTitle, body: morningBody, sound: true },
+    trigger: { 
+      type: Notifications.SchedulableTriggerInputTypes.DAILY, 
+      hour: morningHour, 
+      minute: morningMinute 
     } as any,
   });
 
-  // 2. Pre-Session Notification 30 mins before peak UV and session start notification
-  if (peakUv >= 3 && peakHour !== -1) {
-    // pre-session (30 minutes before)
-    let preSessionDate = new Date();
-    // use actualPeakHour for scheduling
-    preSessionDate.setHours(actualPeakHour, 0, 0, 0);
-    preSessionDate.setMinutes(preSessionDate.getMinutes() - 30);
-
-    if (now.getTime() < preSessionDate.getTime()) {
-      dailyPreSessionId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: isIt ? "Preparati! 🕶️" : "Get Ready! 🕶️",
-          body: isIt
-            ? `Picco UV tra 30 min. Prepara crema e asciugamano!`
-            : "Peak UV in 30 mins. Get your sunscreen and towel!",
-          sound: true,
-        },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: preSessionDate },
-      });
-    }
-
-    // session start at peakHour (notify when the interval starts)
-    let sessionDate = new Date();
-    sessionDate.setHours(actualPeakHour, 0, 0, 0);
-    if (now.getTime() < sessionDate.getTime()) {
-      sessionStartId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: isIt ? "È iniziata la sessione ☀️" : "Session started ☀️",
-          body: isIt
-            ? `Ora ideale per prendere il sole: ${peakHour}:00 (UV: ${Math.round(peakUv)}).` 
-            : `Ideal sun session now: ${peakHour}:00 (UV: ${Math.round(peakUv)}).`,
-          sound: true,
-        },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: sessionDate },
-      });
-    }
-  }
-
-  // 3. Safety alert if extreme UV
-  if (peakUv > 8) {
-    safetyAlertId = await Notifications.scheduleNotificationAsync({
+  // 2. Safety alert if CURRENT REAL GPS UV is extreme
+  if (currentUv > 8) {
+    await Notifications.scheduleNotificationAsync({
       content: {
         title: isIt ? "Attenzione: Alto Rischio di Scottatura! ⚠️" : "High Burn Risk! ⚠️",
         body: isIt
-          ? `UV molto alto (${Math.round(peakUv)}). Evita esposizioni prolungate.`
-          : `Very high UV (${Math.round(peakUv)}). Avoid prolonged exposure.`,
+          ? `UV molto alto (${Math.round(currentUv)}). Evita esposizioni prolungate.`
+          : `Very high UV (${Math.round(currentUv)}). Avoid prolonged exposure.`,
         sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
       },
@@ -197,5 +143,78 @@ export async function scheduleSafetyAlert(uvIndex: number, currentTemp: number) 
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1 },
   });
+}
+
+// Calculate current streak (consecutive days with sessions)
+export function calculateCurrentStreak(): number {
+  const { history } = useAppStore.getState();
+  if (!history || history.length === 0) return 0;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let streak = 0;
+  let checkDate = new Date(today);
+
+  // Walk backwards from today
+  while (true) {
+    const dateStr = checkDate.toISOString().split('T')[0];
+    const hasSession = history.some(s => s.date.startsWith(dateStr));
+    
+    if (hasSession) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+let streakWarningId: string | null = null;
+
+export async function scheduleStreakWarningNotification() {
+  await cancelStreakWarningNotification();
+
+  const streak = calculateCurrentStreak();
+  const { language } = useAppStore.getState();
+  const isIt = language === 'it';
+
+  // Only notify if streak >= 4 AND is a multiple of 4
+  if (streak < 4 || streak % 4 !== 0) {
+    return;
+  }
+
+  // Calculate when the streak expires (23 hours from now, or more precisely:
+  // 24 hours after the last session of yesterday)
+  const now = new Date();
+  const lastSessionDate = new Date(now);
+  lastSessionDate.setDate(lastSessionDate.getDate() - 1); // Yesterday
+  lastSessionDate.setHours(23, 59, 59, 0); // End of yesterday
+
+  // Warn 1 hour before the streak expires
+  const warningTime = new Date(lastSessionDate);
+  warningTime.setHours(warningTime.getHours() + 1); // 1 hour after streak expires = now + ~24 - 1 = ~23 hours from now
+
+  if (now.getTime() < warningTime.getTime()) {
+    streakWarningId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: isIt ? "🔥 Streack in Pericolo!" : "🔥 Streak at Risk!",
+        body: isIt
+          ? `Tra 1 ora perderai la streak di ${streak} giorni di fila! Fai una sessione adesso.`
+          : `You'll lose your ${streak}-day streak in 1 hour! Get a session in now.`,
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: warningTime },
+    });
+  }
+}
+
+export async function cancelStreakWarningNotification() {
+  if (streakWarningId !== null) {
+    await Notifications.cancelScheduledNotificationAsync(streakWarningId);
+    streakWarningId = null;
+  }
 }
 

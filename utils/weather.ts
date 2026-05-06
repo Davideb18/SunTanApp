@@ -1,4 +1,5 @@
 import * as Location from "expo-location";
+import { useAppStore } from "@/store/useAppStore";
 
 export interface ForecastDay {
   date: string;
@@ -29,49 +30,66 @@ export interface WeatherData {
   sunset: string;
   hourlyUvData: number[];
   locationName: string;
+  utcOffset: number;
   dailyForecast: ForecastDay[];
 }
 
-export async function fetchWeatherData(): Promise<WeatherData> {
+export async function fetchWeatherData(lat?: number, lon?: number): Promise<WeatherData> {
   const toHourLabel = (hour: number) => `${String((hour + 24) % 24).padStart(2, "0")}:00`;
   const isRainRisk = (weatherCode: number, precipitationProbability: number) => {
     const wetWeatherCode = weatherCode >= 51 && weatherCode <= 99;
     return wetWeatherCode || precipitationProbability >= 45;
   };
 
-  const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
-  
-  if (status !== "granted") {
-    if (canAskAgain) {
-      // Show a "normal" text popup before the system one
-      await new Promise((resolve) => {
-        const { Alert } = require("react-native");
-        Alert.alert(
-          "Location Required",
-          "Glowy needs your location to calculate accurate UV data for your area and protect your skin.",
-          [
-            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-            { text: "OK", onPress: () => resolve(true) }
-          ]
-        );
-      });
+  const mockLocation = useAppStore.getState().mockLocation;
+  let latitude: number;
+  let longitude: number;
+  let city: string;
 
-      const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
-      if (newStatus !== "granted") {
+  if (lat !== undefined && lon !== undefined) {
+    latitude = lat;
+    longitude = lon;
+    city = "Current Area"; // Will be updated by reverse geocode below if needed
+  } else if (mockLocation) {
+    latitude = mockLocation.lat;
+    longitude = mockLocation.lon;
+    city = mockLocation.name;
+  } else {
+    const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
+    
+    if (status !== "granted") {
+      if (canAskAgain) {
+        // Show a "normal" text popup before the system one
+        await new Promise((resolve) => {
+          const { Alert } = require("react-native");
+          Alert.alert(
+            "Location Required",
+            "Glowy needs your location to calculate accurate UV data for your area and protect your skin.",
+            [
+              { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+              { text: "OK", onPress: () => resolve(true) }
+            ]
+          );
+        });
+
+        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+        if (newStatus !== "granted") {
+          throw new Error("LOCATION_PERMISSION_DENIED");
+        }
+      } else {
         throw new Error("LOCATION_PERMISSION_DENIED");
       }
-    } else {
-      throw new Error("LOCATION_PERMISSION_DENIED");
     }
+
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    latitude = location.coords.latitude;
+    longitude = location.coords.longitude;
+
+    const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+    city = geocode[0]?.city || geocode[0]?.region || "Your Area";
   }
-
-  const location = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
-  const { latitude, longitude } = location.coords;
-
-  const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-  const city = geocode[0]?.city || geocode[0]?.region || "Your Area";
 
   // Fetch advanced solar radiation metrics
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,uv_index,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=uv_index,weather_code,precipitation_probability&daily=uv_index_max,temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code&timezone=auto&past_days=1&forecast_days=8`;
@@ -103,9 +121,16 @@ export async function fetchWeatherData(): Promise<WeatherData> {
   const sanitizedHourlyWeatherCode = (data.hourly.weather_code || []).map((v: number | null) => v ?? 0);
   const sanitizedHourlyPrecipitation = (data.hourly.precipitation_probability || []).map((v: number | null) => v ?? 0);
 
-  const now = new Date();
-  const currentHour = now.getHours();
-  const absoluteIndex = 24 + currentHour;
+  const utcTime = new Date();
+  const utcHours = utcTime.getUTCHours();
+  const utcMinutes = utcTime.getUTCMinutes();
+  
+  // Calculate local hour at the destination
+  const offsetSeconds = data.utc_offset_seconds || 0;
+  const localHourFractional = (utcHours + utcMinutes / 60 + offsetSeconds / 3600 + 24) % 24;
+  const localHour = Math.floor(localHourFractional);
+  
+  const absoluteIndex = 24 + localHour;
   const centeredData = sanitizedHourlyUv.slice(absoluteIndex - 12, absoluteIndex + 13);
   
   const sunsetFull = data.daily.sunset[1] || "";
@@ -182,6 +207,7 @@ export async function fetchWeatherData(): Promise<WeatherData> {
     sunset: sunsetTime,
     hourlyUvData: centeredData,
     locationName: city,
+    utcOffset: data.utc_offset_seconds || 0,
     dailyForecast
   };
 }

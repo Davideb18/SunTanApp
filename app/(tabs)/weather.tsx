@@ -9,7 +9,7 @@ import {
   AlertTriangle, Calendar, Moon, Sun, CloudRain, 
   CloudSnow, CloudLightning, SunDim, CloudSun, 
   CloudDrizzle, CloudFog, Zap, Layers, Info, 
-  ShieldCheck, Globe, Coins, Settings, Lock
+  ShieldCheck, Globe, Coins, Settings, Lock, MapPin, ChevronDown
 } from "lucide-react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 
@@ -55,9 +55,23 @@ export default function WeatherScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { cachedCurrentUv, setCachedCurrentUv, history, dailyGoalMinutes, fitzpatrickLevel, hasPremium } = useAppStore();
+  const { cachedCurrentUv, setWeatherData, history, dailyGoalMinutes, fitzpatrickLevel, hasPremium, mockLocation, utcOffset } = useAppStore();
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  // ... (existing states)
+
+  const getLocalTime = () => {
+    const utcTime = new Date();
+    const utcHours = utcTime.getUTCHours();
+    const utcMinutes = utcTime.getUTCMinutes();
+    
+    // Calculate fractional hour to handle non-integer offsets (rare but possible)
+    const localHourFractional = (utcHours + utcMinutes / 60 + utcOffset / 3600 + 24) % 24;
+    const localHour = Math.floor(localHourFractional);
+    const localMinute = Math.floor((localHourFractional % 1) * 60);
+    
+    return `${String(localHour).padStart(2, '0')}:${String(localMinute).padStart(2, '0')}`;
+  };
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
@@ -65,9 +79,42 @@ export default function WeatherScreen() {
 
   const [premiumVisible, setPremiumVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [ambassadorVisible, setAmbassadorVisible] = useState(false);
+  const setLocationModalVisible = useAppStore((s) => s.setLocationModalVisible);
+  const ambassadorVisible = useAppStore((s) => s.ambassadorVisible);
+  const setAmbassadorVisible = useAppStore((s) => s.setAmbassadorVisible);
   const mainScrollRef = React.useRef<ScrollView>(null);
   const ambassadorRef = React.useRef<View>(null);
+
+  useEffect(() => {
+    loadWeather();
+  }, [mockLocation]);
+
+  const loadWeather = async () => {
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      
+      const data = await fetchWeatherData();
+      setWeather(data);
+      setWeatherData({
+        currentUv: data.currentUv,
+        currentTemp: data.currentTemp,
+        feelsLikeTemp: data.feelsLikeTemp,
+        hourlyUvData: data.hourlyUvData,
+        locationName: data.locationName,
+        utcOffset: data.utcOffset,
+      });
+    } catch (e: any) {
+      console.error(e);
+      if (e.message === "LOCATION_PERMISSION_DENIED") {
+        setErrorMsg("Location permission denied. Please enable it in settings.");
+      } else {
+        setErrorMsg("Unable to refresh weather data. Please try again shortly.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const scrollToAmbassador = () => {
     ambassadorRef.current?.measureLayout(
@@ -111,31 +158,7 @@ export default function WeatherScreen() {
     scrollRef.current?.scrollTo({ x: xOffset, y: 0, animated });
   }, [weather]);
 
-  const loadWeather = async () => {
-    try {
-      setLoading(true);
-      setErrorMsg(null);
-      
-      // Check status before requesting
-      const { status: currentStatus } = await ExpoLocation.getForegroundPermissionsAsync();
-      setPermissionStatus(currentStatus);
 
-      const data = await fetchWeatherData();
-      setWeather(data);
-      setCachedCurrentUv(data.currentUv);
-      setPermissionStatus("granted");
-    } catch (err) {
-      console.error(err);
-      if (err instanceof Error && err.message === "LOCATION_PERMISSION_DENIED") {
-        setPermissionStatus("denied");
-        setErrorMsg("Enable location to view UV index and weather for your area.");
-      } else {
-        setErrorMsg("Unable to refresh weather data. Please try again shortly.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const requestPermission = async () => {
     try {
@@ -147,7 +170,7 @@ export default function WeatherScreen() {
       }
     } catch (e) {
       console.error(e);
-      setErrorMsg("Error while requesting permissions.");
+      setErrorMsg(t.locationPermError);
     } finally {
       setLoading(false);
     }
@@ -237,7 +260,16 @@ export default function WeatherScreen() {
   const strategyEnd = tomorrowForecast?.strategyEndTime ?? tomorrowForecast?.bestEndTime ?? "--:--";
   const peakRainProbability = Math.round(tomorrowForecast?.peakRainProbability ?? 0);
   const strategyRainProbability = Math.round(tomorrowForecast?.strategyRainProbability ?? 0);
-  const tomorrowRecommended = tomorrowForecast ? (tomorrowForecast.isOptimalWindow || tomorrowForecast.hasDryFallback) : false;
+  const tomorrowUvMax = tomorrowForecast?.uvMax ?? 0;
+  const tomorrowWeatherCode = tomorrowForecast?.weatherCode ?? 0;
+  
+  // Very strict recommendation: YES only if ALL conditions are optimal
+  // - NO rain (0% probability)
+  // - Clear/sunny (weatherCode <= 3: 0=sunny, 1=mainly clear, 2=partly cloudy, 3=overcast)
+  // - UV decent (>= 3)
+  const tomorrowRecommended = tomorrowForecast 
+    ? (strategyRainProbability === 0 && tomorrowWeatherCode <= 2 && tomorrowUvMax >= 3)
+    : false;
   const tomorrowRecommendationLabel = tomorrowRecommended ? "SÌ" : "NO";
 
   return (
@@ -251,10 +283,19 @@ export default function WeatherScreen() {
         {/* Header */}
         <View className="mb-6 flex-row items-center justify-between">
           <View>
-            <Text className="text-[24px] font-black tracking-[-0.5px] text-white">{t.environment}</Text>
-            <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/80">
-              {loading ? (t.language === "it" ? "Rilevamento posizione..." : "Detecting location...") : weather?.locationName || (t.language === "it" ? "Posizione non disponibile" : "Location unavailable")}
-            </Text>
+            <Text className="text-[32px] font-black tracking-[-1.5px] text-white uppercase">HOME</Text>
+            <TouchableOpacity 
+              onPress={() => setLocationModalVisible(true)}
+              className="flex-row items-center mt-1"
+              activeOpacity={0.7}
+            >
+              <Text className="text-sm font-bold text-white/60">
+                {loading ? t.detectingLocation : weather?.locationName || t.locationUnavailable}
+              </Text>
+              <View className="ml-2 h-5 w-5 items-center justify-center rounded-full bg-white/10">
+                <ChevronDown size={12} color="white" />
+              </View>
+            </TouchableOpacity>
           </View>
           
           <View className="flex-row items-center gap-2">
@@ -287,7 +328,7 @@ export default function WeatherScreen() {
                 <View className="mb-2 flex-row items-center rounded-[20px] bg-white/5 px-2.5 py-[5px]">
                    <Clock size={12} color={COLORS.accentYellow} style={{ marginRight: 6 }} />
                    <Text className="text-xs font-extrabold tracking-[1px]" style={{ color: COLORS.accentYellow }}>
-                     {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                     {getLocalTime()}
                    </Text>
                 </View>
                 <Text className="my-1 text-[84px] font-black leading-[84px]" style={{ color: uvInfo.color }}>
@@ -366,8 +407,13 @@ export default function WeatherScreen() {
                 {weather.hourlyUvData.map((uv, index) => {
                   const nowTimelineIndex = Math.floor(weather.hourlyUvData.length / 2);
                   const isNow = index === nowTimelineIndex;
-                  const nowHour = new Date().getHours();
-                  const itemHour = (nowHour - nowTimelineIndex + index + 24) % 24;
+                  const utcTime = new Date();
+                  const utcHours = utcTime.getUTCHours();
+                  const offsetSeconds = utcOffset || 0;
+                  const localHourFractional = (utcHours + offsetSeconds / 3600 + 24) % 24;
+                  const localHourNow = Math.floor(localHourFractional);
+                  
+                  const itemHour = (localHourNow - nowTimelineIndex + index + 24) % 24;
                   const barColor = getVividUvColor(uv);
                   const barHeight = Math.max((uv / maxDailyUv) * 90, 8);
                   let hourLabel = isNow ? "NOW" : (itemHour === 0 ? "12A" : (itemHour === 12 ? "12P" : (itemHour > 12 ? `${itemHour - 12}P` : `${itemHour}A`)));
@@ -403,7 +449,7 @@ export default function WeatherScreen() {
                 <Zap size={18} color={COLORS.accentYellow} />
                 <Text className="mt-3 text-[22px] font-black text-white">{Math.round(weather.shortwaveRadiation)}<Text className="text-[10px]">W</Text></Text>
                 <Text className="text-[9px] font-black text-white uppercase tracking-[1px] mt-1">{t.solarIntensity}</Text>
-                <Text className="mt-2 text-[9px] font-bold text-accentYellow uppercase">{weather.shortwaveRadiation > 600 ? `${t.strong} • ${t.fastTan}` : t.lowSlow}</Text>
+                <Text className="mt-2 text-[9px] font-bold text-accentYellow uppercase">{weather.shortwaveRadiation > 600 ? `${t.strongUv} • ${t.fastTan}` : t.lowSlow}</Text>
                 <View className="mt-3 h-[3px] w-full overflow-hidden rounded bg-white/5">
                   <View style={{ height: "100%", width: `${Math.min((weather.shortwaveRadiation / 1000) * 100, 100)}%`, backgroundColor: COLORS.accentYellow }} />
                 </View>
@@ -500,14 +546,24 @@ export default function WeatherScreen() {
                       </View>
                     </View>
                     <View className="flex-1 ml-8 pl-6 border-l border-white/10">
-                      <Text className="text-[11px] font-bold text-white/70 leading-[16px] mb-2">
-                        {tomorrowRecommended ? 'Sì' : 'No'}: picco UV <Text className="text-accentYellow font-black">{(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text> tra <Text className="text-white font-black">{strategyStart}</Text> e <Text className="text-white font-black">{strategyEnd}</Text> con temperatura <Text className="text-white font-black">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°C</Text>.
-                      </Text>
-                      <View className={`flex-row items-center px-3 py-1.5 rounded-lg ${tomorrowRecommended ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-rose-500/10 border border-rose-500/30'}`}>
-                        <Text className={`text-[10px] font-black uppercase tracking-[1px] ${tomorrowRecommended ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {tomorrowRecommended ? '✅ Consigliato' : '❌ Sconsigliato'}
-                        </Text>
-                      </View>
+                      {tomorrowRecommended ? (
+                        <>
+                          <Text className="text-[11px] font-bold text-white/70 leading-[16px] mb-3">
+                            {t.betweenStr} <Text className="text-white font-black">{strategyStart}</Text> {t.andStr} <Text className="text-white font-black">{strategyEnd}</Text> {t.withPeakUv} <Text className="text-accentYellow font-black">{(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text>
+                          </Text>
+                          <View className="bg-emerald-500/10 border border-emerald-500/30 flex-row items-center px-3 py-1.5 rounded-lg w-fit">
+                            <Text className="text-[10px] font-black uppercase tracking-[1px] text-emerald-400">
+                              {t.recommendedAction}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <View className="bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-lg">
+                          <Text className="text-[9px] font-black uppercase tracking-[1px] text-rose-400 whitespace-nowrap">
+                            {t.notRecommendedAction}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                  </View>
                )}
@@ -559,7 +615,7 @@ export default function WeatherScreen() {
             <View className="h-[1px] w-12 bg-white/20 mb-8" />
             <View className="flex-row items-center mb-5">
               <ShieldCheck size={16} color="rgba(255,255,255,0.6)" />
-              <Text className="ml-3 text-[11px] font-black uppercase tracking-[2px] text-white/50">Scientific Intelligence</Text>
+              <Text className="ml-3 text-[11px] font-black uppercase tracking-[2px] text-white/50">{t.scientificIntelligence}</Text>
             </View>
             <Text className="text-center text-[11px] leading-[20px] text-white/50 font-medium px-4">
               Environmental metrics powered by <Text className="text-white/80 font-black">Open-Meteo</Text> utilizing high-resolution atmospheric models from <Text className="text-white/80 font-black">ECMWF</Text> and <Text className="text-white/80 font-black">Copernicus CAMS</Text>.

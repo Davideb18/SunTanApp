@@ -5,6 +5,7 @@ import { X, Shield, FileText, CheckCircle2 } from "lucide-react-native";
 import { GradientBackground } from "./GradientBackground";
 import { GlassCard } from "./GlassCard";
 import { LEGAL_TEXT } from "@/constants/legal_text";
+import { useTranslation } from "@/constants/i18n";
 
 interface LegalModalProps {
   visible: boolean;
@@ -14,15 +15,16 @@ interface LegalModalProps {
 
 export const LegalModal: React.FC<LegalModalProps> = ({ visible, onClose, type = "privacy" }) => {
   const insets = useSafeAreaInsets();
+  const t = useTranslation();
 
   const content = {
     privacy: {
-      title: "Privacy Policy",
+      title: t.privacyPolicyTitle,
       icon: <Shield size={24} color="#60A5FA" />,
       text: LEGAL_TEXT
     },
     terms: {
-      title: "Terms of Service",
+      title: t.termsOfServiceTitle,
       icon: <FileText size={24} color="#FB923C" />,
       text: LEGAL_TEXT
     }
@@ -74,7 +76,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ visible, onClose, type =
                 
                 <View className="mt-12 items-center">
                   <CheckCircle2 size={32} color="#4ADE80" opacity={0.6} />
-                  <Text className="mt-4 text-[10px] font-black text-white/30 uppercase tracking-[2px]">Last Updated: April 25, 2026</Text>
+                  <Text className="mt-4 text-[10px] font-black text-white/30 uppercase tracking-[2px]">{t.lastUpdatedText}</Text>
                 </View>
               </GlassCard>
 
@@ -83,7 +85,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ visible, onClose, type =
                 className="mt-8 bg-white py-5 rounded-[24px] items-center shadow-lg"
                 activeOpacity={0.9}
               >
-                <Text className="text-sm font-black uppercase tracking-[2px] text-black">Close & Accept</Text>
+                <Text className="text-sm font-black uppercase tracking-[2px] text-black">{t.closeAndAcceptText}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>

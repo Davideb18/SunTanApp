@@ -7,7 +7,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { schedulePhaseEndNotification, cancelPhaseEndNotification, scheduleDailySunNotification, scheduleSafetyAlert } from "../utils/notifications";
+import { schedulePhaseEndNotification, cancelPhaseEndNotification, scheduleDailySunNotification, scheduleSafetyAlert, scheduleStreakWarningNotification } from "../utils/notifications";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,8 +58,15 @@ export interface AppState {
   feelsLikeTemp: number;
   hourlyUvData: number[];
   locationName: string | null;
+  utcOffset: number;
   lastWeatherFetch: number | null;
 
+  // Mock Location
+  mockLocation: { lat: number; lon: number; name: string } | null;
+  setMockLocation: (loc: { lat: number; lon: number; name: string } | null) => void;
+
+  locationModalVisible: boolean;
+  setLocationModalVisible: (visible: boolean) => void;
   // ── Session state ─────────────────────────────────────────────────────────
   sessionStatus: "idle" | "active" | "paused" | "done";
   currentPhaseIndex: number;
@@ -98,6 +105,7 @@ export interface AppState {
     feelsLikeTemp: number;
     hourlyUvData: number[];
     locationName?: string;
+    utcOffset: number;
   }) => void;
 
   // ── Session Actions ───────────────────────────────────────────────────────
@@ -154,7 +162,7 @@ function generatePhases(
   }
 
   // 3. Coach Mode - derived rotation timing
-  let safeRotationCount = Math.max(2, Math.min(rotationCount ?? 4, 8));
+  let safeRotationCount = Math.max(2, Math.min(rotationCount ?? 4, 6));
   let flipDuration = safeRotationCount > 1 ? 10 * (safeRotationCount - 1) : 0;
   let coachExposureSeconds = totalSeconds - flipDuration;
 
@@ -210,6 +218,9 @@ const DEFAULT_STATE = {
   feelsLikeTemp: 0,
   hourlyUvData: [] as number[],
   locationName: null as string | null,
+  utcOffset: 0,
+  mockLocation: null as { lat: number; lon: number; name: string } | null,
+  locationModalVisible: false,
   lastWeatherFetch: null as number | null,
   sessionStatus: "idle" as "idle" | "active" | "paused" | "done",
   currentPhaseIndex: 0,
@@ -247,17 +258,15 @@ export const useAppStore = create<AppState>()(
 
       incrementAppOpenCount: () => set((state) => ({ appOpenCount: state.appOpenCount + 1 })),
       
+      setMockLocation: (loc) => set({ mockLocation: loc }),
+      setLocationModalVisible: (visible) => set({ locationModalVisible: visible }),
       setPremiumVisible: (visible) => set({ premiumVisible: visible }),
       setAmbassadorVisible: (visible) => set({ ambassadorVisible: visible }),
 
       setLastEngineMode: (mode) => set({ lastEngineMode: mode }),
 
-      setWeatherData: ({ currentUv, currentTemp, feelsLikeTemp, hourlyUvData, locationName }) => {
+      setWeatherData: ({ currentUv, currentTemp, feelsLikeTemp, hourlyUvData, locationName, utcOffset }) => {
         set((state) => {
-          if (state.notificationsEnabled && hourlyUvData && hourlyUvData.length > 0) {
-            scheduleDailySunNotification(hourlyUvData, currentTemp);
-          }
-          
           let updatedSafetyDate = state.lastSafetyAlertDate;
           const today = new Date().toDateString();
           if (state.notificationsEnabled && today !== state.lastSafetyAlertDate) {
@@ -273,6 +282,7 @@ export const useAppStore = create<AppState>()(
             feelsLikeTemp,
             hourlyUvData,
             locationName: locationName ?? state.locationName,
+            utcOffset: utcOffset ?? state.utcOffset,
             lastWeatherFetch: Date.now(),
             lastSafetyAlertDate: updatedSafetyDate,
           };
@@ -387,16 +397,21 @@ export const useAppStore = create<AppState>()(
         }),
 
       addSessionToHistory: (session) =>
-        set((state) => ({
-          history: [
+        set((state) => {
+          const newHistory = [
             {
               ...session,
               id: Math.random().toString(36).substring(7),
               date: new Date().toISOString(),
             },
             ...state.history,
-          ],
-        })),
+          ];
+          
+          // Schedule streak warning notification if streak >= 4 and is a multiple of 4
+          scheduleStreakWarningNotification();
+          
+          return { history: newHistory };
+        }),
 
       updateHistoryItemData: (id, updates) =>
         set((state) => ({
@@ -426,6 +441,10 @@ export const useAppStore = create<AppState>()(
     {
       name: "glowy-storage",
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => {
+        const { mockLocation, locationModalVisible, premiumVisible, ambassadorVisible, ...rest } = state;
+        return rest;
+      },
     }
   )
 );

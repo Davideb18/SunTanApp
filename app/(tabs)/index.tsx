@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Modal, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { 
   Play, Pause, X, ChevronRight, ShieldCheck, 
-  Check, Sun, Settings, Droplet
+  Check, Sun, Settings, Droplet, MapPin, ChevronDown
 } from "lucide-react-native";
+import { LocationModal } from "@/components/LocationModal";
 
 import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
@@ -102,8 +103,8 @@ const deriveCoachPlan = (params: {
     )
   );
 
-  const targetRotationMinutes = params.intensity === "gentle" ? 12 : params.intensity === "strong" ? 8 : 10;
-  const cycles = Math.max(2, Math.min(8, Math.round(effectiveMinutes / targetRotationMinutes)));
+  const targetRotationMinutes = params.intensity === "gentle" ? 10 : params.intensity === "strong" ? 5 : 6;
+  const cycles = Math.max(2, Math.min(6, Math.round(effectiveMinutes / targetRotationMinutes)));
 
   const minutesPerCycle = Math.max(1, Math.round(effectiveMinutes / cycles));
 
@@ -166,6 +167,7 @@ const MiniProgress = ({ progress, isActive, isCompleted, onPress }: { progress: 
 };
 
 export default function TrackerScreen() {
+
   const t = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -174,6 +176,8 @@ export default function TrackerScreen() {
   const setAmbassadorVisible = useAppStore((s) => s.setAmbassadorVisible);
   const [coachCustomizerVisible, setCoachCustomizerVisible] = useState(false);
   const [coachCustomizerTarget, setCoachCustomizerTarget] = useState<"skin" | "uv" | "time" | "cycles" | "cream" | "intensity">("time");
+  const setLocationModalVisible = useAppStore((s) => s.setLocationModalVisible);
+  const locationName = useAppStore((s) => s.locationName);
 
   const getUvLabel = (label: string) => {
     const key = label.toLowerCase().replace(" ", "") as keyof typeof t;
@@ -217,6 +221,10 @@ export default function TrackerScreen() {
   const [coachCreamSpf, setCoachCreamSpf] = useState(currentSpf);
   const [coachIntensity, setCoachIntensity] = useState<CoachIntensity>("balanced");
 
+  // Refs per scroll automatico della fase attiva
+  const phaseScrollRef = useRef<ScrollView>(null);
+  const itemLayouts = useRef<Record<number, { y: number; height: number }>>({});
+
   useEffect(() => {
     setCoachSkinLevel(fitzpatrickLevel || 1);
   }, [fitzpatrickLevel]);
@@ -230,6 +238,17 @@ export default function TrackerScreen() {
       setPersonalMinutes(dailyGoalMinutes);
     }
   }, [dailyGoalMinutes]);
+
+  // Centra automaticamente la fase attiva quando currentPhaseIndex cambia
+  useEffect(() => {
+    if (!isSessionActive || !phaseScrollRef.current) return;
+    const phaseLayout = itemLayouts.current[currentPhaseIndex];
+    if (phaseLayout) {
+      // Calcola il punto Y da raggiungere per centrare la fase
+      const contentOffsetY = phaseLayout.y - 150; // 150 è approssimazione dello spazio rimanente
+      phaseScrollRef.current.scrollTo({ y: contentOffsetY, animated: true });
+    }
+  }, [currentPhaseIndex, isSessionActive]);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [detectedColor, setDetectedColor] = useState<string | null>(null);
 
@@ -330,10 +349,7 @@ export default function TrackerScreen() {
       >
         <View className="mb-10 w-full flex-row items-center justify-between">
           <View className="flex-1 pr-3 items-start">
-            <Text className="text-[24px] font-black tracking-[-0.5px] text-white">{t.tracker}</Text>
-            <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
-              {isSessionActive ? t.activeSession : (t.language === 'it' ? "Pronto a splendere" : "Ready to Glow")}
-            </Text>
+            <Text className="text-[32px] font-black tracking-[-1.5px] text-white uppercase">TRACKER</Text>
           </View>
           <View className="flex-row items-center gap-2">
             <HeaderButtons 
@@ -354,7 +370,18 @@ export default function TrackerScreen() {
           <View className="items-center justify-center w-full my-3">
             <TimerRing 
               progress={!isIdle && !isDone ? (sessionTimeRemaining / (currentPhase?.duration || 1)) : 1}
-              subtitle={isUvStopped ? t.noUv : !isIdle && !isDone ? currentPhase?.label : isDone ? t.finish : t.ready}
+              subtitle={
+                isUvStopped ? t.noUv : 
+                (!isIdle && !isDone && currentPhase) ? 
+                  (currentPhase.label === "FRONT SIDE" ? t.frontSideLabel : 
+                   currentPhase.label === "FLIP POSITION" ? t.flipPositionLabel : 
+                   currentPhase.label === "BACK SIDE" ? t.backSideLabel : 
+                   currentPhase.label === "QUICK EXPOSURE" ? t.quickExposureLabel : 
+                   currentPhase.label.startsWith("FRONT SIDE") ? `${t.frontSideNumbered} ${currentPhase.label.split(" ")[2]}` : 
+                   currentPhase.label.startsWith("BACK SIDE") ? `${t.backSideNumbered} ${currentPhase.label.split(" ")[2]}` : 
+                   currentPhase.label) : 
+                isDone ? t.finish : t.ready
+              }
               timeLabel={isUvStopped ? t.stop : !isIdle && !isDone ? formatDuration(sessionTimeRemaining) : formatDuration(idleTimeSeconds)}
               totalTimeLabel={!isIdle && !isDone ? formatDuration(totalElapsedSeconds) : undefined}
               isActive={isSessionActive}
@@ -379,6 +406,8 @@ export default function TrackerScreen() {
                 setCapturedImage(uri);
                 if (color) setDetectedColor(color);
               }}
+              isPremium={hasPremium}
+              onUpgrade={() => setPremiumVisible(true)}
             />
           </View>
         ) : (
@@ -402,7 +431,7 @@ export default function TrackerScreen() {
                       <View className="flex-row items-center justify-between mb-3">
                          <View className="flex-row items-center">
                            <Sun size={18} color={COLORS.accentYellow} />
-                           <Text className="ml-2.5 text-base font-black text-white">Sun Coach</Text>
+                           <Text className="ml-2.5 text-base font-black text-white">{t.sunCoach}</Text>
                          </View>
                          <TouchableOpacity
                            onPress={() => {
@@ -412,7 +441,7 @@ export default function TrackerScreen() {
                            activeOpacity={0.85}
                            className="rounded-full bg-accentYellow px-3.5 py-2"
                          >
-                           <Text className="text-[9px] font-black uppercase tracking-[2px] text-black">Customize</Text>
+                           <Text className="text-[9px] font-black uppercase tracking-[2px] text-black">{t.customize}</Text>
                          </TouchableOpacity>
                       </View>
 
@@ -551,7 +580,17 @@ export default function TrackerScreen() {
               <View className="items-center justify-center w-full mb-8 mt-2">
                 <TimerRing 
                   progress={sessionTimeRemaining / (currentPhase?.duration || 1)}
-                  subtitle={currentPhase?.label || ""}
+                  subtitle={
+                    currentPhase ? (
+                      currentPhase.label === "FRONT SIDE" ? t.frontSideLabel : 
+                      currentPhase.label === "FLIP POSITION" ? t.flipPositionLabel : 
+                      currentPhase.label === "BACK SIDE" ? t.backSideLabel : 
+                      currentPhase.label === "QUICK EXPOSURE" ? t.quickExposureLabel : 
+                      currentPhase.label.startsWith("FRONT SIDE") ? `${t.frontSideNumbered} ${currentPhase.label.split(" ")[2]}` : 
+                      currentPhase.label.startsWith("BACK SIDE") ? `${t.backSideNumbered} ${currentPhase.label.split(" ")[2]}` : 
+                      currentPhase.label
+                    ) : ""
+                  }
                   timeLabel={formatDuration(sessionTimeRemaining)}
                   totalTimeLabel={formatDuration(totalElapsedSeconds)}
                   isActive={isSessionActive}
@@ -570,18 +609,31 @@ export default function TrackerScreen() {
                 </View>
               </View>
 
-              <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              <ScrollView
+                ref={phaseScrollRef}
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 20 }}
+              >
                 {sessionPhases.map((phase, idx) => {
                   const isActive = idx === currentPhaseIndex;
                   const isCompleted = idx < currentPhaseIndex;
                   const phaseProgress = isActive ? 1 - (sessionTimeRemaining / phase.duration) : (isCompleted ? 1 : 0);
                   
                   return (
-                    <View key={idx} className="mb-4">
+                    <View
+                      key={idx}
+                      className="mb-2"
+                      onLayout={(e) => {
+                        const layout = e.nativeEvent.layout;
+                        // store each item layout for centering
+                        (itemLayouts.current as any)[idx] = { y: layout.y, height: layout.height };
+                      }}
+                    >
                       <GlassCard 
                         style={{ 
-                          padding: 16, 
-                          borderRadius: 28, 
+                          padding: 12, 
+                          borderRadius: 24, 
                           borderWidth: isActive ? 1.5 : 1, 
                           borderColor: isActive ? COLORS.accentYellow : "rgba(255,255,255,0.1)",
                           backgroundColor: isActive ? "rgba(255,222,0,0.08)" : "rgba(0,0,0,0.5)",
@@ -601,9 +653,9 @@ export default function TrackerScreen() {
                               onPress={nextPhase}
                             />
                             <View className="ml-4 flex-1">
-                              <Text className={`text-[17px] font-black ${isActive ? 'text-white' : 'text-white/60'}`}>{phase.label}</Text>
+                              <Text className={`text-[15px] font-black ${isActive ? 'text-white' : 'text-white/60'}`}>{phase.label}</Text>
                               {isActive && (
-                                <Text className="text-[10px] font-bold text-accentYellow uppercase tracking-[1px] mt-1.5 leading-[14px]">
+                                <Text className="text-[9px] font-bold text-accentYellow uppercase tracking-[1px] mt-0.5 leading-[12px]">
                                   {(() => {
                                     if (phase.type === "front") return t.suggestionFront;
                                     if (phase.type === "back") return t.suggestionBack;
@@ -662,9 +714,6 @@ export default function TrackerScreen() {
             <View className="flex-row items-center justify-between mb-5">
               <View>
                 <Text className="text-[28px] font-black tracking-[-1px] text-white">{t.customizeCoach}</Text>
-                <Text className="mt-1 text-xs font-bold uppercase tracking-[2px] text-white/50">
-                  {coachCustomizerTarget === "skin" ? t.yourSkinTone : coachCustomizerTarget === "uv" ? t.currentUv : coachCustomizerTarget === "time" ? t.sessionTime : coachCustomizerTarget === "cycles" ? t.cycles : coachCustomizerTarget === "cream" ? t.creamType : t.intensityLabel}
-                </Text>
               </View>
               <TouchableOpacity onPress={() => setCoachCustomizerVisible(false)} className="h-10 w-10 items-center justify-center rounded-full bg-white/10">
                 <X size={18} color="white" />
@@ -692,8 +741,8 @@ export default function TrackerScreen() {
               </ScrollView>
               <Text className="mt-3 text-center text-[11px] font-medium text-white/50">
                 {isUvStopped 
-                  ? (t.language === 'it' ? "UV a 0, il piano è fermo finché non sorge il sole." : "UV is 0, so the plan is stopped until the sun is available.") 
-                  : (t.language === 'it' ? `Timer attuale: ${effectiveCoachMinutes} min • ${coachCycles} rotazioni` : `Actual timer: ${effectiveCoachMinutes} min • ${coachCycles} rotations`)}
+                  ? t.uvZeroPlanStopped 
+                  : `${t.actualTimerRotations}: ${effectiveCoachMinutes} min • ${coachCycles} ${t.rotations.toLowerCase()}`}
               </Text>
             </View>
 
@@ -731,7 +780,9 @@ export default function TrackerScreen() {
                       }}
                       className={`min-w-[72px] flex-1 items-center rounded-2xl border px-3 py-3 ${active ? "border-accentYellow bg-accentYellow/10" : "border-white/10 bg-white/5"}`}
                     >
-                      <Text className={`text-[12px] font-black uppercase tracking-[1px] ${active ? "text-accentYellow" : "text-white/70"}`}>{option.label}</Text>
+                      <Text className={`text-[12px] font-black uppercase tracking-[1px] ${active ? "text-accentYellow" : "text-white/70"}`}>
+                        {option.value === 0 ? t.noCream : option.label}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -751,8 +802,12 @@ export default function TrackerScreen() {
                       }}
                       className={`min-w-[88px] flex-1 rounded-2xl border px-3 py-3 ${active ? "border-accentYellow bg-accentYellow/10" : "border-white/10 bg-white/5"}`}
                     >
-                      <Text className={`text-[12px] font-black uppercase tracking-[1px] ${active ? "text-accentYellow" : "text-white/70"}`}>{option.label}</Text>
-                      <Text className="mt-1 text-[10px] font-medium text-white/45">{option.hint}</Text>
+                      <Text numberOfLines={1} adjustsFontSizeToFit className={`text-[12px] font-black uppercase tracking-[1px] ${active ? "text-accentYellow" : "text-white/70"}`}>
+                        {option.id === "gentle" ? t.gentle : option.id === "balanced" ? t.balanced : t.strong}
+                      </Text>
+                      <Text numberOfLines={1} adjustsFontSizeToFit className="mt-1 text-[10px] font-medium text-white/45">
+                        {option.id === "gentle" ? t.longerSession : option.id === "balanced" ? t.recommended : t.shorterSession}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}

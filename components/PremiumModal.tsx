@@ -25,6 +25,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { COLORS } from "@/constants/theme";
 import { useTranslation } from "@/constants/i18n";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
+import { useAppStore } from "@/store/useAppStore";
 import { PACKAGE_TYPE } from "react-native-purchases";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -71,7 +72,9 @@ const FeatureItem = ({ title, icon, children, isExpanded, onToggle }: any) => {
 
 export function PremiumModal({ visible, onClose }: PremiumModalProps) {
   const t = useTranslation();
-  const { packages, purchasePackage, restorePurchases, presentCodeRedemptionSheet } = useRevenueCat();
+  const language = useAppStore((s) => s.language);
+  const isItalian = language === "it";
+  const { packages, isLoadingOfferings, refreshOfferings, purchasePackage, restorePurchases, presentCodeRedemptionSheet } = useRevenueCat();
   const [loading, setLoading] = React.useState(false);
   const [selectedIndex, setSelectedIndex] = React.useState(1);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
@@ -84,6 +87,8 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
 
   useEffect(() => {
     if (visible) {
+      // Retry fetching offerings each time paywall opens to avoid stale "Loading..." prices.
+      refreshOfferings();
       setCanClose(false);
       closeFadeAnim.setValue(0);
       Animated.parallel([
@@ -103,42 +108,53 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
       setExpandedFeature(null);
       setCanClose(false);
     }
-  }, [visible]);
+  }, [visible, refreshOfferings]);
 
-  // Resolve packages
-  const annual    = packages.find(p => p.packageType === PACKAGE_TYPE.ANNUAL);
-  const quarterly = packages.find(p => p.packageType === PACKAGE_TYPE.THREE_MONTH);
-  const monthly   = packages.find(p => p.packageType === PACKAGE_TYPE.MONTHLY);
+  // Resolve packages from RevenueCat offering.
+  // We try packageType first, then fallback by identifier matching to avoid silent mismatches.
+  const findPackage = (packageType: PACKAGE_TYPE, idHints: string[]) => {
+    const byType = packages.find((p) => p.packageType === packageType);
+    if (byType) return byType;
+
+    return packages.find((p) => {
+      const identifier = `${p.identifier ?? ""} ${p.product.identifier ?? ""}`.toLowerCase();
+      return idHints.some((hint) => identifier.includes(hint));
+    });
+  };
+
+  const annual = findPackage(PACKAGE_TYPE.ANNUAL, ["annual", "year", "yearly"]);
+  const quarterly = findPackage(PACKAGE_TYPE.THREE_MONTH, ["quarter", "3month", "three_month", "three-month"]);
+  const monthly = findPackage(PACKAGE_TYPE.MONTHLY, ["monthly", "month"]);
 
   const plans = [
     {
       key: "annual",
       pack: annual,
       label: t.annualElite,
-      period: t.language === "it" ? "/ anno" : "/ year",
-      badge: t.bestDeal,
-      saving: t.language === "it" ? "RISPARMIA 58%" : "SAVE 58%",
-      fallbackPrice: "€24.99",
+      period: isItalian ? "/ anno" : "/ year",
+      badge: isItalian ? "RISPARMIA 58%" : "SAVE 58%", // We can use badge for something else or just leave it
+      saving: isItalian ? "RISPARMIA 58%" : "SAVE 58%",
       trial: t.sevenDayTrial,
+      originalPrice: monthly?.product ? 
+        monthly.product.priceString.replace(/[\d.,]+/, (monthly.product.price * 12).toFixed(2)) 
+        : (isItalian ? "59,99 €" : "$59.99"),
     },
     {
       key: "quarterly",
       pack: quarterly,
       label: t.quarterlyPro,
-      period: t.language === "it" ? "/ 3 mesi" : "/ 3 months",
-      badge: t.popular,
+      period: isItalian ? "/ 3 mesi" : "/ 3 months",
+      badge: isItalian ? "PIÙ ACQUISTATO" : "MOST POPULAR",
       saving: null,
-      fallbackPrice: "€12.99",
-      trial: t.threeDayTrial,
+      trial: null,
     },
     {
       key: "monthly",
       pack: monthly,
       label: t.monthlyPass,
-      period: t.language === "it" ? "/ mese" : "/ month",
+      period: isItalian ? "/ mese" : "/ month",
       badge: null,
       saving: null,
-      fallbackPrice: "€4.99",
       trial: null,
     },
   ];
@@ -147,10 +163,10 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
     const selectedPlan = plans[selectedIndex];
     if (!selectedPlan.pack) {
       Alert.alert(
-        t.language === "it" ? "Modalità Demo" : "Demo Mode",
-        t.language === "it"
-          ? "In Expo Go gli acquisti non sono attivi. Questa è una demo del design."
-          : "In Expo Go purchases are not active. This is a design demo."
+        isItalian ? "Offerta non disponibile" : "Offer not available",
+        isItalian
+          ? "Prezzi e pacchetti non sono ancora stati caricati da RevenueCat. Verifica API key, offering e connessione, poi riapri il paywall."
+          : "Packages and prices are not loaded from RevenueCat yet. Check API key, offering, and connectivity, then reopen the paywall."
       );
       return;
     }
@@ -168,8 +184,8 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
       onClose();
     } else {
       Alert.alert(
-        t.language === "it" ? "Nessun acquisto" : "No purchases",
-        t.language === "it" ? "Nessun abbonamento trovato." : "No active subscription found."
+        isItalian ? "Nessun acquisto" : "No purchases",
+        isItalian ? "Nessun abbonamento trovato." : "No active subscription found."
       );
     }
   };
@@ -177,72 +193,146 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
   const FEATURES = [
     {
       id: "coach",
-      title: t.language === 'it' ? "AI Smart Coach" : "AI Smart Coach",
+      title: isItalian ? "AI Smart Coach" : "AI Smart Coach",
       icon: <Zap />,
       content: (
         <View className="rounded-2xl bg-black/40 p-4 border border-white/10">
-          <Text className="text-[11px] font-bold text-white/70 leading-5 mb-4">{t.feat1}</Text>
-          <View className="flex-row gap-3">
-             <View className="flex-1 bg-white/10 rounded-2xl p-3 items-center">
-                <View className="h-7 w-7 rounded-full bg-[#C68642] mb-1.5" />
-                <Text className="text-[9px] font-black text-white/50">TYPE 4</Text>
-             </View>
-             <View className="flex-[2] bg-white/15 rounded-2xl p-3 justify-center">
-                <View className="flex-row gap-1 mb-2">
-                   <View className="h-2 flex-1 bg-white rounded-full" />
-                   <View className="h-2 flex-1 bg-white/20 rounded-full" />
-                </View>
-                <Text className="text-[10px] font-black text-white italic">3 x 8 min {t.rotations}</Text>
-             </View>
+          <Text className="text-[13px] font-bold text-white/70 leading-5 mb-4">{t.feat1}</Text>
+          {/* Personalized Plan Preview */}
+          <View className="rounded-lg bg-gradient-to-r from-accentYellow/20 to-orange-500/20 border border-accentYellow/40 p-4 mb-3">
+             <Text className="text-[12px] font-black text-accentYellow uppercase tracking-widest mb-2">{t.coachPlanLabel}</Text>
+             <Text className="text-[15px] font-black text-white leading-tight mb-2">
+                📋 {t.coachPlanDesc.replace("Tipo 4", "").trim()}
+                <Text className="text-accentYellow"> Tipo 4</Text>
+             </Text>
+             <Text className="text-[12px] font-bold text-white/50 italic">
+                {t.coachWeeklyDesc}
+             </Text>
+          </View>
+          <View className="bg-white/5 rounded-lg p-3 border-l-2 border-sky-400">
+             <Text className="text-[13px] font-bold text-white">✓ {t.coachAdapted}</Text>
+             <Text className="text-[13px] font-bold text-white/50 mt-1">{t.coachNoGeneric}</Text>
           </View>
         </View>
       )
     },
     {
       id: "forecast",
-      title: t.language === 'it' ? "Previsioni & Strategia" : "Strategy & Forecast",
+      title: isItalian ? "Previsioni & Strategia" : "Strategy & Forecast",
       icon: <Sun />,
       content: (
         <View className="rounded-2xl bg-black/40 p-4 border border-white/10">
-          <Text className="text-[11px] font-bold text-white/70 leading-5 mb-4">{t.feat2}</Text>
-          <View className="flex-row items-end gap-1.5 h-12 justify-center">
-             {[2,5,8,9,7,4].map((h, i) => (
-               <View key={i} className="w-4 rounded-t-md" style={{ height: `${h*10}%`, backgroundColor: h > 7 ? 'white' : 'rgba(255,255,255,0.3)' }} />
-             ))}
+          <Text className="text-[13px] font-bold text-white/70 leading-5 mb-4">{t.feat2}</Text>
+          {/* Tomorrow Forecast Box Mock */}
+          <View className="rounded-card bg-gradient-to-br from-accentYellow/15 to-orange-500/10 border-2 border-accentYellow p-4 mb-3">
+             <Text className="text-[12px] font-black text-accentYellow/70 uppercase tracking-widest mb-3">☀️ {t.forecastTomorrow}</Text>
+             {/* Time Range — BIG */}
+             <Text className="text-[32px] font-black text-accentYellow leading-none mb-2">15:00-17:00</Text>
+             <Text className="text-[13px] font-bold text-white/60 mb-3">{t.forecastWindow}</Text>
+             {/* UV + Temp Row */}
+             <View className="flex-row gap-3 mb-3">
+                <View className="flex-1 bg-white/10 rounded-lg p-2 border border-white/20">
+                   <Text className="text-[10px] font-black text-white/50 mb-1">{t.forecastUvIndex}</Text>
+                   <Text className="text-[20px] font-black text-accentYellow">8.5</Text>
+                </View>
+                <View className="flex-1 bg-white/10 rounded-lg p-2 border border-white/20">
+                   <Text className="text-[10px] font-black text-white/50 mb-1">{t.forecastTemp}</Text>
+                   <Text className="text-[20px] font-black text-white">28°C</Text>
+                </View>
+             </View>
+             {/* Recommendation */}
+             <View className="bg-emerald-500/20 border border-emerald-500/50 rounded-lg p-2">
+                <Text className="text-[13px] font-black text-emerald-300">✅ {t.forecastRecommended}</Text>
+             </View>
+          </View>
+          {/* Chart Context */}
+          <View className="bg-white/5 rounded-lg p-3 border-l-2 border-sky-400">
+             <Text className="text-[13px] font-bold text-white">{t.forecastChart}</Text>
+             <Text className="text-[12px] font-bold text-white/50 mt-1">{t.forecastPlan}</Text>
           </View>
         </View>
       )
     },
     {
       id: "skin",
-      title: t.language === 'it' ? "Intelligenza Pelle" : "Skin Intelligence",
+      title: isItalian ? "Protezione Pelle " : "Skin Protection",
       icon: <ShieldCheck />,
       content: (
         <View className="rounded-2xl bg-black/40 p-4 border border-white/10">
-          <Text className="text-[11px] font-bold text-white/70 leading-5 mb-4">{t.feat3}</Text>
-          <View className="flex-row items-center justify-between">
-             <View className="flex-row items-center">
-                <View className="h-9 w-9 rounded-full bg-[#D2B48C]" />
-                <ChevronRight size={14} color="white" opacity={0.3} style={{marginHorizontal: 10}} />
-                <View className="h-9 w-9 rounded-full bg-[#8B4513] border-2 border-white" />
+          <Text className="text-[12px] font-bold text-white/70 leading-5 mb-4">{t.feat3}</Text>
+          {/* Skin Progress */}
+          <View className="rounded-lg bg-white/5 p-3 mb-3">
+             <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-[11px] font-black text-white/50">{isItalian ? "STATO PELLE" : "SKIN STATUS"}</Text>
+                <Text className="text-[12px] font-black text-emerald-400">{isItalian ? "98% SALUTE" : "98% HEALTH"}</Text>
              </View>
-             <View className="items-end">
-                <Text className="text-[11px] font-black text-white italic">HEALTHY: 98%</Text>
-                <Text className="text-[9px] font-bold text-white/40 uppercase">RECOVERY OK</Text>
+             <View className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <View className="h-full bg-emerald-500 rounded-full" style={{width: '98%'}} />
              </View>
+          </View>
+          {/* Recovery Info */}
+          <View className="flex-row items-center justify-between bg-white/5 rounded-lg p-2 border-l-2 border-sky-400">
+             <Text className="text-[12px] font-bold text-sky-400">{isItalian ? "Recovery Score" : "Recovery Score"}</Text>
+             <Text className="text-[14px] font-black text-white">↗ +12%</Text>
           </View>
         </View>
       )
     },
     {
       id: "history",
-      title: t.language === 'it' ? "Cronologia Infinita" : "Infinite History",
+      title: isItalian ? "Cronologia Infinita" : "Infinite History",
       icon: <Clock />,
       content: (
-        <View className="rounded-2xl bg-black/40 p-5 items-center border border-white/10">
-           <Sparkles size={24} color="white" />
-           <Text className="text-white font-black text-2xl mt-2 tracking-[-1px]">∞ SESSIONS</Text>
-           <Text className="text-[10px] font-bold text-white/30 uppercase mt-1">UNLIMITED CLOUD SYNC</Text>
+        <View className="rounded-2xl bg-black/40 p-4 border border-white/10">
+          <Text className="text-[12px] font-bold text-white/70 leading-5 mb-4">{t.feat4}</Text>
+          {/* Skin Progression Over Time */}
+          <View className="rounded-lg bg-white/5 p-4 mb-3 border border-white/10">
+             <Text className="text-[11px] font-black text-white/50 mb-3 uppercase tracking-widest">{isItalian ? "Progressione Pelle" : "Skin Progression"}</Text>
+             {/* Timeline with Health Scores */}
+             <View className="gap-2">
+                <View className="flex-row items-center justify-between">
+                   <Text className="text-[11px] font-black text-white/50">{isItalian ? "Settimana 1" : "Week 1"}</Text>
+                   <View className="flex-row items-center gap-2 flex-1 ml-3">
+                      <View className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                         <View className="h-full bg-orange-400 rounded-full" style={{width: '45%'}} />
+                      </View>
+                      <Text className="text-[11px] font-black text-orange-400">45%</Text>
+                   </View>
+                </View>
+                <View className="flex-row items-center justify-between">
+                   <Text className="text-[11px] font-black text-white/50">{isItalian ? "Settimana 3" : "Week 3"}</Text>
+                   <View className="flex-row items-center gap-2 flex-1 ml-3">
+                      <View className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                         <View className="h-full bg-yellow-400 rounded-full" style={{width: '70%'}} />
+                      </View>
+                      <Text className="text-[11px] font-black text-yellow-400">70%</Text>
+                   </View>
+                </View>
+                <View className="flex-row items-center justify-between">
+                   <Text className="text-[11px] font-black text-white/50">{isItalian ? "Settimana 6" : "Week 6"}</Text>
+                   <View className="flex-row items-center gap-2 flex-1 ml-3">
+                      <View className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                         <View className="h-full bg-emerald-400 rounded-full" style={{width: '90%'}} />
+                      </View>
+                      <Text className="text-[11px] font-black text-emerald-400">90%</Text>
+                   </View>
+                </View>
+                <View className="flex-row items-center justify-between">
+                   <Text className="text-[11px] font-black text-white/50">{isItalian ? "Oggi" : "Today"}</Text>
+                   <View className="flex-row items-center gap-2 flex-1 ml-3">
+                      <View className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                         <View className="h-full bg-emerald-500 rounded-full" style={{width: '98%'}} />
+                      </View>
+                      <Text className="text-[11px] font-black text-emerald-500">98%</Text>
+                   </View>
+                </View>
+             </View>
+          </View>
+          {/* Key Value Proposition */}
+          <View className="bg-white/5 rounded-lg p-3 border-l-2 border-accentYellow">
+             <Text className="text-[13px] font-bold text-white">📈 {t.historyProgression}</Text>
+             <Text className="text-[12px] font-bold text-white/50 mt-1">{t.historyNotTime}</Text>
+          </View>
         </View>
       )
     }
@@ -327,6 +417,7 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                       key={plan.key}
                       onPress={() => setSelectedIndex(index)}
                       style={{
+                        position: 'relative',
                         marginBottom: 12,
                         borderRadius: 28,
                         borderWidth: 3,
@@ -335,7 +426,14 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                         backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.05)',
                       }}
                     >
-                      <View className="p-4 flex-row items-center justify-between">
+                      {/* Top Right Badge (for Most Popular) */}
+                      {plan.badge && plan.key === "quarterly" && (
+                        <View className="absolute top-0 right-0 bg-white px-3 py-1 rounded-bl-xl">
+                          <Text className="text-[10px] font-black text-black uppercase tracking-[1px]">{plan.badge}</Text>
+                        </View>
+                      )}
+
+                      <View className={`p-4 ${plan.badge && plan.key === "quarterly" ? 'pt-6' : ''} flex-row items-center justify-between`}>
                         <View className="flex-row items-center flex-1">
                           <View className={`h-6 w-6 rounded-full border-2 items-center justify-center mr-4 ${isSelected ? 'border-white bg-white' : 'border-white/30'}`}>
                             {isSelected && <View className="h-2.5 w-2.5 rounded-full bg-black" />}
@@ -346,8 +444,21 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                           </View>
                         </View>
                         <View className="items-end">
-                          <Text className="text-2xl font-black text-white leading-7">{plan.pack?.product.priceString ?? plan.fallbackPrice}</Text>
-                          {plan.saving && <Text className="text-[10px] font-black text-white uppercase tracking-[1px] opacity-80">{plan.saving}</Text>}
+                          <View className="flex-row items-end">
+                            {plan.originalPrice && (
+                              <Text className="text-sm font-bold text-white/50 line-through mr-2 pb-0.5">
+                                {plan.originalPrice}
+                              </Text>
+                            )}
+                            <Text className="text-2xl font-black text-white leading-7">
+                              {plan.pack?.product.priceString ?? (isItalian ? 'Caricamento...' : 'Loading...')}
+                            </Text>
+                          </View>
+                          {plan.saving && (
+                            <View className="mt-1 bg-white px-2 py-0.5 rounded shadow-sm">
+                              <Text className="text-[10px] font-black text-black uppercase tracking-[1px]">{plan.saving}</Text>
+                            </View>
+                          )}
                         </View>
                       </View>
                     </Pressable>
@@ -360,37 +471,49 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                 onPress={handlePurchase}
                 disabled={loading}
                 activeOpacity={0.8}
-                className="w-full h-20 bg-white rounded-[28px] items-center justify-center mb-6"
+                className="w-full h-20 rounded-[28px] items-center justify-center mb-6 border border-white"
                 style={{
+                  backgroundColor: '#FFFFFF',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 8 },
                   shadowOpacity: 0.3,
                   shadowRadius: 16,
                   elevation: 10,
+                  opacity: plans[selectedIndex]?.pack ? 1 : 0.7,
                 }}
               >
                 {loading ? <ActivityIndicator color="black" /> : (
-                  <View className="flex-row items-center">
-                    <Zap size={24} color="black" fill="black" className="mr-3" />
-                    <Text className="text-xl font-black text-black uppercase tracking-[1.5px]">
-                      {plans[selectedIndex]?.trial
-                        ? (t.language === 'it' ? "PROVA GRATIS ORA" : "START FREE TRIAL")
-                        : (t.language === 'it' ? "SBLOCCA PREMIUM" : "GET PREMIUM")
-                      }
-                    </Text>
-                  </View>
+                  <Text className="text-xl font-black text-black uppercase tracking-[1.5px]">
+                    {plans[selectedIndex]?.trial
+                      ? (isItalian ? "PROVA GRATIS ORA" : "START FREE TRIAL")
+                      : (isItalian ? "SBLOCCA PREMIUM" : "GET PREMIUM")
+                    }
+                  </Text>
                 )}
               </TouchableOpacity>
 
-              {/* Footer */}
-              <View className="flex-row justify-center gap-x-12 mb-6">
-                <TouchableOpacity 
-                  onPress={handleRestore}
-                  activeOpacity={0.6}
-                >
-                  <Text className="text-[12px] font-black text-white/50 uppercase tracking-[2px]">{t.language === 'it' ? "RIPRISTINA" : "RESTORE"}</Text>
-                </TouchableOpacity>
-              </View>
+              {!plans.some((p) => !!p.pack) && (
+                <View className="items-center mb-4 px-8">
+                  {isLoadingOfferings ? (
+                    <View className="items-center">
+                      <ActivityIndicator color="white" />
+                      <Text className="text-[11px] text-white/70 font-bold text-center mt-2">{isItalian ? "Caricamento prezzi in corso..." : "Loading prices..."}</Text>
+                      <TouchableOpacity onPress={refreshOfferings} className="mt-3 px-4 py-2 rounded-full border border-white">
+                        <Text className="text-[12px] font-bold text-white">{isItalian ? "Riprova ora" : "Retry now"}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View className="items-center">
+                      <Text className="text-[11px] text-white/70 font-bold text-center mb-2">{isItalian ? "Prezzi non disponibili. Controlla RevenueCat API key e offering corrente." : "Prices unavailable. Check RevenueCat API key and current offering."}</Text>
+                      <TouchableOpacity onPress={refreshOfferings} className="mt-2 px-4 py-2 rounded-full border border-white">
+                        <Text className="text-[12px] font-bold text-white">{isItalian ? "Riprova" : "Retry"}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Footer - removed Restore button (confusing for most users) */}
 
               <Text className="text-[10px] text-white/30 font-bold text-center leading-4 px-10">
                 {t.premiumDisclaimer}

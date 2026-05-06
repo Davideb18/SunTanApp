@@ -39,7 +39,12 @@ export default function TabsLayout() {
     return <Redirect href="/onboarding" />;
   }
 
+  const setMockLocation = useAppStore((s) => s.setMockLocation);
+
   useEffect(() => {
+    // Force reset mock location to GPS on every app launch
+    setMockLocation(null);
+    
     if (hasPremium) return;
 
     // Increment counter on every app open

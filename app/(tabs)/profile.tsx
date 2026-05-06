@@ -217,7 +217,7 @@ export default function ProfileScreen() {
                 </View>
                 <Text className="text-lg font-black text-white uppercase tracking-[3px] text-center">{t.visualJourney}</Text>
                 <Text className="text-[11px] font-bold text-accentYellow uppercase mt-2 tracking-[1.5px] italic text-center">
-                  {t.language === "it" ? "SBLOCCA TUTTA LA CRONOLOGIA\nCON PREMIUM" : t.unlockHistory}
+                  {t.unlockFullHistory}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -354,7 +354,7 @@ export default function ProfileScreen() {
                    <Text className="ml-3 text-lg font-black text-white">{t.yourSkinTone}</Text>
                 </View>
                 <View className="bg-white/10 px-3 py-1 rounded-lg border border-white/20">
-                  <Text className="text-[10px] font-black text-white">{t.language === 'it' ? "TEMPO BASE" : "BASE TIMER"}</Text>
+                  <Text className="text-[10px] font-black text-white">{t.baseTimer}</Text>
                 </View>
               </View>
               
@@ -469,7 +469,7 @@ export default function ProfileScreen() {
             </View>
             <View className={`px-3 py-1 rounded-lg border ${hasPremium ? 'bg-accentYellow/15 border-accentYellow/30' : 'bg-white/10 border-white/20'}`}>
               <Text className={`text-[10px] font-black ${hasPremium ? 'text-accentYellow' : 'text-white'}`}>
-                {hasPremium ? (t.language === 'it' ? 'SBLOCCATO' : 'UNLOCKED') : 'PRO'}
+                {hasPremium ? t.unlocked : 'PRO'}
               </Text>
             </View>
           </View>
@@ -493,7 +493,7 @@ export default function ProfileScreen() {
                 <Lock size={32} color="white" />
                </View>
                <Text className="text-lg font-black text-white uppercase tracking-[3px] text-center">{t.biometricsVault}</Text>
-               <Text className="text-[11px] font-bold text-accentYellow uppercase mt-2 tracking-[1.5px] italic text-center">{t.language === "it" ? "SBLOCCA CON PREMIUM" : t.unlockHistory}</Text>
+               <Text className="text-[11px] font-bold text-accentYellow uppercase mt-2 tracking-[1.5px] italic text-center">{t.unlockWithPremium}</Text>
               </View>
             </TouchableOpacity>
            ) : (
@@ -630,8 +630,8 @@ export default function ProfileScreen() {
                           <Lock size={24} color="white" opacity={0.6} />
                         </View>
                         <View className="ml-5">
-                          <Text className="text-[12px] font-black text-white/65 uppercase tracking-[1px]">{t.language === 'it' ? 'Sblocca Premium' : 'Unlock Premium'}</Text>
-                          <Text className="text-[16px] font-black text-white mt-1">{t.language === 'it' ? 'Tutte le Sessioni' : 'All Sessions'}</Text>
+                          <Text className="text-[12px] font-black text-white/65 uppercase tracking-[1px]">{t.unlockPremiumAction}</Text>
+                          <Text className="text-[16px] font-black text-white mt-1">{t.allSessions}</Text>
                         </View>
                       </View>
                       <ChevronRight size={20} color="rgba(255, 255, 255, 0.25)" />

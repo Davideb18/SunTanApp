@@ -11,6 +11,7 @@
 import { useState, useEffect } from "react";
 import Purchases, { CustomerInfo } from "react-native-purchases";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 // L'identificatore dell'Entitlement che abbiamo creato su RevenueCat
 const ENTITLEMENT_ID = "pro_glowy";
@@ -28,8 +29,9 @@ export function usePremium(): PremiumState {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
 
   const checkPremiumStatus = async () => {
-    // RevenueCat funziona solo su dispositivi fisici/simulatori iOS e Android
-    if (Platform.OS === "web") {
+    // RevenueCat funziona solo su dispositivi fisici/simulatori iOS e Android e non su Expo Go
+    const isExpoGo = Constants.appOwnership === "expo";
+    if (Platform.OS === "web" || isExpoGo) {
       setIsLoading(false);
       return;
     }
@@ -52,6 +54,9 @@ export function usePremium(): PremiumState {
 
   useEffect(() => {
     checkPremiumStatus();
+
+    const isExpoGo = Constants.appOwnership === "expo";
+    if (Platform.OS === "web" || isExpoGo) return;
 
     // Ascolta i cambiamenti in tempo reale (es. dopo un acquisto)
     const onCustomerInfoUpdated = (info: CustomerInfo) => {

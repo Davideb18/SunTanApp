@@ -13,6 +13,8 @@ import Constants from "expo-constants";
 import { useAppStore } from "../store/useAppStore";
 import { PremiumModal } from "@/components/PremiumModal";
 import { AmbassadorModal } from "@/components/AmbassadorModal";
+import { LocationModal } from "@/components/LocationModal";
+import { refreshGPSNotifications } from "../utils/notificationEngine";
 import "../global.css";
 
 export default function RootLayout() {
@@ -20,13 +22,12 @@ export default function RootLayout() {
   const setPremiumVisible = useAppStore((s) => s.setPremiumVisible);
   const ambassadorVisible = useAppStore((s) => s.ambassadorVisible);
   const setAmbassadorVisible = useAppStore((s) => s.setAmbassadorVisible);
+  const locationModalVisible = useAppStore((s) => s.locationModalVisible);
+  const setLocationModalVisible = useAppStore((s) => s.setLocationModalVisible);
 
   useEffect(() => {
     setupNotifications();
     
-    // Configure RevenueCat
-    Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
-
     // RevenueCat native SDK non funziona dentro Expo Go.
     // Verrà attivato solo in Dev Build e in Produzione.
     const isExpoGo = Constants.appOwnership === "expo";
@@ -35,17 +36,32 @@ export default function RootLayout() {
       return;
     }
 
+    // Configure RevenueCat (verbose logging for preview builds to aid debugging)
+    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    if (typeof Purchases.setDebugLogsEnabled === 'function') {
+      try { Purchases.setDebugLogsEnabled(true); } catch (e) { /* noop */ }
+    }
+
     const revenueCatApiKey = Platform.OS === "ios"
       ? process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY
       : undefined; // Android key can be added later
 
     if (Platform.OS === "ios" || Platform.OS === "android") {
       if (revenueCatApiKey) {
-        Purchases.configure({ apiKey: revenueCatApiKey });
+        console.log(`[RevenueCat] Using API key present: ${revenueCatApiKey ? 'yes' : 'no'}`);
+        try {
+          Purchases.configure({ apiKey: revenueCatApiKey });
+          console.log("[RevenueCat] Purchases configuration initiated");
+        } catch (e) {
+          console.error("[RevenueCat] Purchases.configure() threw:", e);
+        }
       } else {
         console.warn("[RevenueCat] API key missing.");
       }
     }
+
+    // Refresh GPS-locked notifications on app launch
+    refreshGPSNotifications();
   }, []);
 
   return (
@@ -72,6 +88,13 @@ export default function RootLayout() {
         <AmbassadorModal
           visible={ambassadorVisible}
           onClose={() => setAmbassadorVisible(false)}
+        />
+        <LocationModal
+          visible={locationModalVisible}
+          onClose={() => setLocationModalVisible(false)}
+          onRefresh={() => {
+            // This will be handled by the screens which use the location
+          }}
         />
       </SafeAreaProvider>
     </GestureHandlerRootView>
