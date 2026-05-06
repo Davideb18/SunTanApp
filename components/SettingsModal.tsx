@@ -143,7 +143,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                   <SettingRow 
                     icon={Ruler} 
                     label={t.unitsOfMeasure} 
-                    value={units === "metric" ? "Metric (°C)" : "Imperial (°F)"} 
+                    value={units === "metric" ? t.metric : t.imperial} 
                     onPress={() => setUnits(units === "metric" ? "imperial" : "metric")}
                   />
                   <SettingRow 
@@ -200,6 +200,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                     label={t.legalPrivacy} 
                     onPress={() => openLegal("privacy")}
                   />
+                </GlassCard>
+              </View>
+
+              {/* DEBUG Section (Only for Testing in Expo Go) */}
+              <View className="mt-6 mb-4">
+                <Text className="text-[10px] font-black text-white uppercase tracking-[2px] mb-4">Debug (Testing Only)</Text>
+                <GlassCard style={{ borderRadius: 32, padding: 20, backgroundColor: "rgba(255,165,0,0.1)", borderWidth: 1.5, borderColor: "#FFA500" }}>
+                  <SettingRow 
+                    icon={Zap} 
+                    label="Force Premium Mode" 
+                    isSwitch={true}
+                    switchValue={hasPremium}
+                    onSwitchChange={setHasPremium}
+                  />
+                  <Text className="mt-2 text-[10px] text-white/40 italic text-center">Use this to test Premium features in Expo Go without payments.</Text>
                 </GlassCard>
               </View>
 

@@ -59,6 +59,7 @@ export interface AppState {
   feelsLikeTemp: number;
   hourlyUvData: number[];
   locationName: string | null;
+  gpsLocationName: string | null;
   utcOffset: number;
   lastWeatherFetch: number | null;
 
@@ -68,6 +69,7 @@ export interface AppState {
 
   locationModalVisible: boolean;
   setLocationModalVisible: (visible: boolean) => void;
+  setGpsLocationName: (name: string) => void;
   // ── Session state ─────────────────────────────────────────────────────────
   sessionStatus: "idle" | "active" | "paused" | "done";
   currentPhaseIndex: number;
@@ -83,6 +85,7 @@ export interface AppState {
   notificationsEnabled: boolean;
   vitDGoalIU: number;
   lastSafetyAlertDate: string | null;
+  lastDailyNotificationDate: string | null;
 
   // ── Actions ───────────────────────────────────────────────────────────────
   setSkinProfile: (params: {
@@ -127,6 +130,7 @@ export interface AppState {
   setUnits: (units: "metric" | "imperial") => void;
   setNotificationsEnabled: (enabled: boolean) => void;
   setVitDGoalIU: (goal: number) => void;
+  setLastDailyNotificationDate: (date: string | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,8 +166,8 @@ function generatePhases(
     return phases;
   }
 
-  // 3. Coach Mode - derived rotation timing
-  let safeRotationCount = Math.max(2, Math.min(rotationCount ?? 4, 6));
+  // 3. Coach Mode - each rotationCount represents a PAIR (Front + Back)
+  let safeRotationCount = Math.max(2, Math.min((rotationCount || 2) * 2, 12));
   let flipDuration = safeRotationCount > 1 ? 10 * (safeRotationCount - 1) : 0;
   let coachExposureSeconds = totalSeconds - flipDuration;
 
@@ -219,6 +223,7 @@ const DEFAULT_STATE = {
   feelsLikeTemp: 0,
   hourlyUvData: [] as number[],
   locationName: null as string | null,
+  gpsLocationName: null as string | null,
   utcOffset: 0,
   mockLocation: null as { lat: number; lon: number; name: string } | null,
   locationModalVisible: false,
@@ -237,6 +242,7 @@ const DEFAULT_STATE = {
   notificationsEnabled: true,
   vitDGoalIU: 15000,
   lastSafetyAlertDate: null as string | null,
+  lastDailyNotificationDate: null as string | null,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -261,6 +267,7 @@ export const useAppStore = create<AppState>()(
       
       setMockLocation: (loc) => set({ mockLocation: loc }),
       setLocationModalVisible: (visible) => set({ locationModalVisible: visible }),
+      setGpsLocationName: (name) => set({ gpsLocationName: name }),
       setPremiumVisible: (visible) => set({ premiumVisible: visible }),
       setAmbassadorVisible: (visible) => set({ ambassadorVisible: visible }),
 
@@ -326,6 +333,7 @@ export const useAppStore = create<AppState>()(
             utcOffset: utcOffset ?? state.utcOffset,
             lastWeatherFetch: Date.now(),
             lastSafetyAlertDate: updatedSafetyDate,
+            gpsLocationName: !state.mockLocation ? (locationName ?? state.gpsLocationName) : state.gpsLocationName,
             ...sessionUpdates
           };
         });
@@ -477,6 +485,8 @@ export const useAppStore = create<AppState>()(
       setNotificationsEnabled: (enabled) => set({ notificationsEnabled: enabled }),
       
       setVitDGoalIU: (goal) => set({ vitDGoalIU: goal }),
+
+      setLastDailyNotificationDate: (date) => set({ lastDailyNotificationDate: date }),
 
       resetProfile: () => set({ ...DEFAULT_STATE, hasCompletedOnboarding: false }),
     }),

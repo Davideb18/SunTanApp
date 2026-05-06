@@ -4,6 +4,7 @@ import { MapPin, X, Navigation, Check, Search, ChevronRight } from "lucide-react
 import { useAppStore } from "@/store/useAppStore";
 import { useTranslation } from "@/constants/i18n";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ExpoLocation from "expo-location";
 import { COLORS } from "@/constants/theme";
 
 interface LocationModalProps {
@@ -18,6 +19,8 @@ export function LocationModal({ visible, onClose, onRefresh }: LocationModalProp
   const mockLocation = useAppStore((s) => s.mockLocation);
   const setMockLocation = useAppStore((s) => s.setMockLocation);
   const locationName = useAppStore((s) => s.locationName);
+  const gpsLocationName = useAppStore((s) => s.gpsLocationName);
+  const setGpsLocationName = useAppStore((s) => s.setGpsLocationName);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -44,6 +47,27 @@ export function LocationModal({ visible, onClose, onRefresh }: LocationModalProp
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+  
+  useEffect(() => {
+    if (!gpsLocationName && visible) {
+       (async () => {
+         try {
+           const { status } = await ExpoLocation.getForegroundPermissionsAsync();
+           if (status === 'granted') {
+             const location = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Low });
+             const geocode = await ExpoLocation.reverseGeocodeAsync({ 
+               latitude: location.coords.latitude, 
+               longitude: location.coords.longitude 
+             });
+             const name = geocode[0]?.city || geocode[0]?.region || "Your Area";
+             setGpsLocationName(name);
+           }
+         } catch (e) {
+           console.log("Silent GPS fetch failed", e);
+         }
+       })();
+    }
+  }, [visible, gpsLocationName]);
 
   const handleSelect = (loc: { name: string, lat: number, lon: number } | null) => {
     setMockLocation(loc);
@@ -56,7 +80,7 @@ export function LocationModal({ visible, onClose, onRefresh }: LocationModalProp
       <View style={{ flex: 1, backgroundColor: '#090909', paddingTop: insets.top }}>
         {/* Header */}
         <View className="px-6 py-4 flex-row items-center justify-between border-b border-white/5">
-          <Text className="text-2xl font-black text-white">Select Location</Text>
+          <Text className="text-2xl font-black text-white">{t.selectLocation}</Text>
           <TouchableOpacity onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full bg-white/10">
             <X size={20} color="white" />
           </TouchableOpacity>
@@ -67,13 +91,18 @@ export function LocationModal({ visible, onClose, onRefresh }: LocationModalProp
           <View className="my-6 flex-row items-center rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
             <Search size={18} color="white" opacity={0.4} />
             <TextInput
-              placeholder="Search city..."
+              placeholder={t.searchCity}
               placeholderTextColor="rgba(255,255,255,0.3)"
               className="ml-3 flex-1 text-white font-bold"
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus={false}
             />
+            {searchQuery.length > 0 && !loading && (
+              <TouchableOpacity onPress={() => setSearchQuery("")} className="p-1">
+                <X size={16} color="white" opacity={0.5} />
+              </TouchableOpacity>
+            )}
             {loading && <ActivityIndicator size="small" color={COLORS.accentYellow} />}
           </View>
 
@@ -87,8 +116,8 @@ export function LocationModal({ visible, onClose, onRefresh }: LocationModalProp
                 <Navigation size={20} color={!mockLocation ? COLORS.accentYellow : 'white'} />
               </View>
               <View className="ml-4">
-                <Text className={`font-black uppercase tracking-[1px] ${!mockLocation ? 'text-accentYellow' : 'text-white'}`}>Current Location</Text>
-                <Text className="text-xs text-white/40 mt-0.5">{locationName || "GPS Detection"}</Text>
+                <Text className={`font-black uppercase tracking-[1px] ${!mockLocation ? 'text-accentYellow' : 'text-white'}`}>{t.currentLocation}</Text>
+                <Text className="text-xs text-white/40 mt-0.5">{gpsLocationName || t.gpsDetection}</Text>
               </View>
             </View>
             {!mockLocation && <Check size={20} color={COLORS.accentYellow} />}
@@ -99,7 +128,7 @@ export function LocationModal({ visible, onClose, onRefresh }: LocationModalProp
           {/* Search Results */}
           {results.length > 0 ? (
             <View>
-              <Text className="mb-4 text-[10px] font-black uppercase tracking-[2px] text-white/30">Search Results</Text>
+              <Text className="mb-4 text-[10px] font-black uppercase tracking-[2px] text-white/30">{t.searchResults || "Search Results"}</Text>
               {results.map((res) => (
                 <TouchableOpacity
                   key={`${res.id}-${res.latitude}`}
@@ -116,12 +145,12 @@ export function LocationModal({ visible, onClose, onRefresh }: LocationModalProp
             </View>
           ) : searchQuery.length >= 3 && !loading ? (
             <View className="py-10 items-center">
-              <Text className="text-white/40 font-bold">No cities found</Text>
+              <Text className="text-white/40 font-bold">{t.noCitiesFound}</Text>
             </View>
           ) : !searchQuery && (
              <View className="py-10 items-center">
                <MapPin size={48} color="white" opacity={0.05} />
-               <Text className="text-white/20 font-black mt-4 uppercase tracking-[2px]">Enter a city name</Text>
+               <Text className="text-white/20 font-black mt-4 uppercase tracking-[2px]">{t.enterCityName}</Text>
              </View>
           )}
           

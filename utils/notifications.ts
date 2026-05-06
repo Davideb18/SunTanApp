@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { useAppStore } from '../store/useAppStore';
+import { getWeatherDescription } from './weather';
 
 // Set how notifications are handled when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -73,13 +74,13 @@ let safetyAlertId: string | null = null;
 export async function scheduleDailySunNotification(hourlyUvData: number[], currentTemp: number, currentUv: number, cloudCover: number = 0, weatherCode: number = 0) {
   const { language } = useAppStore.getState();
   const isIt = language === 'it';
+  // Use the raw translation objects instead of the hook
+  const { it, en } = require('../constants/i18n');
+  const t = isIt ? it : en;
   
-  // Cancel ONLY the daily sun advice notification, not all notifications
   try {
     await Notifications.cancelScheduledNotificationAsync('daily-sun-advice');
-  } catch (error) {
-    // Notification doesn't exist yet, that's fine
-  }
+  } catch (error) {}
 
   let peakUv = 0;
   let peakHour = -1;
@@ -90,22 +91,9 @@ export async function scheduleDailySunNotification(hourlyUvData: number[], curre
     }
   });
 
-  // CRITICAL CONDITIONS FOR MORNING NOTIFICATION
-  // 1. UV must be HIGH (>= 3)
-  // 2. Sky must NOT be covered (cloudCover < 50%)
-  // 3. No rain/wet weather (weatherCode not in rain range: 51-99)
-  // 4. Session must be recommended (3 <= UV <= 8)
-  const isRainyWeather = weatherCode >= 51 && weatherCode <= 99;
-  const isSkyTooCloudyNow = cloudCover > 50;
-  const isSessionRecommended = peakUv >= 3 && peakUv <= 8;
-  
-  // Only schedule notification if ALL conditions are met
-  if (peakUv < 3 || isSkyTooCloudyNow || isRainyWeather || !isSessionRecommended) {
-    console.log(`[Notifications] Morning notification NOT scheduled - UV: ${peakUv}, CloudCover: ${cloudCover}%, WeatherCode: ${weatherCode}, Recommended: ${isSessionRecommended}`);
-    return; // Don't send notification
-  }
+  // If UV is 0 all day, no notification
+  if (peakUv < 1) return;
 
-  // Morning Notification at 8:30 AM (local phone time)
   const morningHour = 8;
   const morningMinute = 30;
 
@@ -115,19 +103,43 @@ export async function scheduleDailySunNotification(hourlyUvData: number[], curre
     minute: morningMinute,
   };
 
-  let morningTitle = isIt ? "Buongiorno! 🌅" : "Good Morning! 🌅";
+  const weatherDesc = getWeatherDescription(weatherCode, t);
   const hourLabel = peakHour >= 0 ? `${peakHour}:00` : "--:--";
+  
+  let morningTitle = isIt ? "Il sole di oggi ☀️" : "Today's Sun ☀️";
   const morningBody = isIt
-    ? `Sessione ideale alle ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C). Cielo sereno!`
-    : `Ideal session at ${hourLabel} (UV: ${Math.round(peakUv)}, Temp: ${Math.round(currentTemp)}°C). Clear skies!`;
+    ? `Picco UV ${Math.round(peakUv)} alle ${hourLabel} (${Math.round(currentTemp)}°C). Meteo: ${weatherDesc}.`
+    : `UV Peak ${Math.round(peakUv)} at ${hourLabel} (${Math.round(currentTemp)}°C). Weather: ${weatherDesc}.`;
 
   await Notifications.scheduleNotificationAsync({
     identifier: 'daily-sun-advice',
     content: { title: morningTitle, body: morningBody, sound: true },
     trigger,
   });
-  
-  console.log(`[Notifications] Morning notification scheduled for 8:30 AM`);
+
+  // 2. Pre-session Notification (30 mins before peak hour)
+  const now = new Date();
+  const alertTime = new Date();
+  alertTime.setHours(peakHour, 0, 0, 0);
+  alertTime.setMinutes(alertTime.getMinutes() - 30); // 30 mins before
+
+  if (alertTime.getTime() > now.getTime()) {
+    try {
+      await Notifications.cancelScheduledNotificationAsync('pre-session-alert');
+    } catch (e) {}
+    
+    await Notifications.scheduleNotificationAsync({
+      identifier: 'pre-session-alert',
+      content: {
+        title: isIt ? "Il sole è quasi pronto! ☀️" : "Sun is almost ready! ☀️",
+        body: isIt
+          ? `Tra 30 minuti inizia il picco UV. Preparati per la tua sessione!`
+          : `UV peak starts in 30 minutes. Get ready for your session!`,
+        sound: true,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: alertTime },
+    });
+  }
 
   // 2. Safety alert if CURRENT REAL GPS UV is extreme
   if (currentUv > 8) {

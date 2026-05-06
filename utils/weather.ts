@@ -15,6 +15,19 @@ export interface ForecastDay {
   hasDryFallback: boolean;
   peakRainProbability: number;
   strategyRainProbability: number;
+  strategyTemp: number;
+  strategyWeatherCode: number;
+  strategyUv: number;
+}
+
+export function getWeatherDescription(code: number, t: any): string {
+  if (code === 0) return t.clearSky;
+  if (code <= 3) return t.partlyCloudy;
+  if (code <= 48) return t.foggy;
+  if (code <= 67) return t.drizzle;
+  if (code <= 82) return t.rainy;
+  if (code <= 99) return t.stormy;
+  return t.variable;
 }
 
 export interface WeatherData {
@@ -32,6 +45,7 @@ export interface WeatherData {
   locationName: string;
   utcOffset: number;
   dailyForecast: ForecastDay[];
+  fullDayUvData: number[];
 }
 
 export async function fetchWeatherData(lat?: number, lon?: number): Promise<WeatherData> {
@@ -45,6 +59,20 @@ export async function fetchWeatherData(lat?: number, lon?: number): Promise<Weat
   let latitude: number;
   let longitude: number;
   let city: string;
+  let realLat: number | null = null;
+  let realLon: number | null = null;
+
+  // 1. ALWAYS try to get real GPS for notifications (silent)
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status === "granted") {
+      const realLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+      realLat = realLocation.coords.latitude;
+      realLon = realLocation.coords.longitude;
+    }
+  } catch (e) {
+    console.log("[Weather] GPS for notifications failed", e);
+  }
 
   if (lat !== undefined && lon !== undefined) {
     latitude = lat;
@@ -86,13 +114,15 @@ export async function fetchWeatherData(lat?: number, lon?: number): Promise<Weat
     });
     latitude = location.coords.latitude;
     longitude = location.coords.longitude;
+    realLat = latitude;
+    realLon = longitude;
 
     const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
     city = geocode[0]?.city || geocode[0]?.region || "Your Area";
   }
 
   // Fetch advanced solar radiation metrics
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,uv_index,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=uv_index,weather_code,precipitation_probability&daily=uv_index_max,temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code&timezone=auto&past_days=1&forecast_days=8`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,uv_index,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=uv_index,weather_code,precipitation_probability,temperature_2m&daily=uv_index_max,temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code&timezone=auto&past_days=1&forecast_days=8`;
   
   const response = await fetch(url);
   
@@ -151,46 +181,46 @@ export async function fetchWeatherData(lat?: number, lon?: number): Promise<Weat
     );
     const peakRainProbability = nextDayHourlyPrecipitation[normalizedPeakHour] ?? 0;
 
-    let fallbackDryHour: number | null = null;
-    if (peakHourRainRisk) {
-      const dryCandidates = nextDayHourlyUv
-        .map((uvValue: number, hour: number) => ({
-          hour,
-          uvValue,
-          rainRisk: isRainRisk(nextDayHourlyCodes[hour] ?? 0, nextDayHourlyPrecipitation[hour] ?? 0),
-        }))
-        .filter((item: { hour: number; uvValue: number; rainRisk: boolean }) => !item.rainRisk && item.uvValue > 0);
+    const dailyTemps = (data.hourly.temperature_2m || []).slice(nextDayHourlyStart, nextDayHourlyStart + 24);
 
-      if (dryCandidates.length > 0) {
-        dryCandidates.sort((a: { hour: number; uvValue: number }, b: { hour: number; uvValue: number }) => {
-          if (b.uvValue !== a.uvValue) return b.uvValue - a.uvValue;
-          return Math.abs(a.hour - normalizedPeakHour) - Math.abs(b.hour - normalizedPeakHour);
-        });
-        fallbackDryHour = dryCandidates[0].hour;
-      }
-    }
+    // Strategy Selection Logic: Target ~7.5 UV if possible, prefer dry hours.
+    const candidates = nextDayHourlyUv.map((uvVal: number, h: number) => ({
+      hour: h, uvVal,
+      temp: dailyTemps[h] ?? 0,
+      code: nextDayHourlyCodes[h] ?? 0,
+      isRainy: isRainRisk(nextDayHourlyCodes[h] ?? 0, sanitizedHourlyPrecipitation[h] ?? 0)
+    })).filter((c: any) => c.uvVal > 0.5);
 
-    const chosenHour = fallbackDryHour ?? normalizedPeakHour;
-    const strategyRainProbability = nextDayHourlyPrecipitation[chosenHour] ?? 0;
+    const dryCandidates = candidates.filter((c: any) => !c.isRainy);
+    const pool = dryCandidates.length > 0 ? dryCandidates : candidates;
+    const dayMax = Math.max(...nextDayHourlyUv);
+
+    const chosen = pool.sort((a: any, b: any) => {
+      const target = dayMax > 8.5 ? 7.5 : dayMax;
+      return Math.abs(a.uvVal - target) - Math.abs(b.uvVal - target);
+    })[0];
+
+    const chosenHour = chosen?.hour ?? normalizedPeakHour;
     const strategyStartTime = toHourLabel(chosenHour - 1);
     const strategyEndTime = toHourLabel(chosenHour + 1);
-    const bestStartTime = toHourLabel(normalizedPeakHour - 1);
-    const bestEndTime = toHourLabel(normalizedPeakHour + 1);
     
     dailyForecast.push({
       date: data.daily.time[i],
       tempMax: data.daily.temperature_2m_max[i] ?? 0,
       uvMax: data.daily.uv_index_max[i] ?? 0,
       weatherCode: data.daily.weather_code[i] ?? 0,
-      bestStartTime,
-      bestEndTime,
+      bestStartTime: toHourLabel(normalizedPeakHour - 1),
+      bestEndTime: toHourLabel(normalizedPeakHour + 1),
       strategyStartTime,
       strategyEndTime,
       isOptimalWindow: !peakHourRainRisk,
       rainExpected: peakHourRainRisk,
-      hasDryFallback: fallbackDryHour !== null,
+      hasDryFallback: false,
       peakRainProbability,
-      strategyRainProbability,
+      strategyRainProbability: sanitizedHourlyPrecipitation[chosenHour] ?? 0,
+      strategyTemp: dailyTemps[chosenHour] ?? 0,
+      strategyWeatherCode: nextDayHourlyCodes[chosenHour] ?? 0,
+      strategyUv: nextDayHourlyUv[chosenHour] ?? 0,
     });
   }
 
@@ -208,6 +238,7 @@ export async function fetchWeatherData(lat?: number, lon?: number): Promise<Weat
     hourlyUvData: centeredData,
     locationName: city,
     utcOffset: data.utc_offset_seconds || 0,
-    dailyForecast
+    dailyForecast,
+    fullDayUvData: sanitizedHourlyUv.slice(0, 24)
   };
 }

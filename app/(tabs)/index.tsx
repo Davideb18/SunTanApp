@@ -16,20 +16,21 @@ import { SessionRecap } from "@/components/SessionRecap";
 import { useRouter } from "expo-router";
 import { HeaderButtons } from "../../components/HeaderButtons";
 import { PremiumModal } from "../../components/PremiumModal";
-import { useAppStore, EngineMode } from "@/store/useAppStore";
+import { useAppStore, EngineMode, AppState } from "@/store/useAppStore";
 import { COLORS, FITZPATRICK_TYPES, formatDuration, getUvBand } from "@/constants/theme";
 import Svg, { Circle } from "react-native-svg";
 import { useTranslation } from "@/constants/i18n";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AmbassadorModal } from "@/components/AmbassadorModal";
 import { getSkinMultiplier } from "@/utils/skin";
+import { calculateSafeMinutes } from "@/utils/tanning";
 
 type CoachIntensity = "gentle" | "balanced" | "strong";
 
 const COACH_INTENSITY_OPTIONS: Array<{ id: CoachIntensity; label: string; hint: string; factor: number }> = [
-  { id: "gentle", label: "Gentle", hint: "Longer session", factor: 1.15 },
-  { id: "balanced", label: "Balanced", hint: "Recommended", factor: 1 },
-  { id: "strong", label: "Strong", hint: "Shorter session", factor: 0.85 },
+  { id: "gentle", label: "Gentle", hint: "Short & Safe", factor: 0.75 },
+  { id: "balanced", label: "Balanced", hint: "Standard", factor: 1 },
+  { id: "strong", label: "Strong", hint: "Intense but Shorter", factor: 0.85 },
 ];
 
 const COACH_CREAM_OPTIONS = [
@@ -41,17 +42,17 @@ const COACH_CREAM_OPTIONS = [
 
 const COACH_CREAM_MULTIPLIERS: Record<number, number> = {
   0: 1,
-  15: 1.5,
-  30: 2.2,
-  50: 3.5,
+  15: 1.2,
+  30: 1.4,
+  50: 1.7,
 };
 
 const getCoachIntensityMultiplier = (intensity: CoachIntensity) => {
   switch (intensity) {
     case "gentle":
-      return 1.12;
+      return 0.75;
     case "strong":
-      return 0.86;
+      return 0.85;
     case "balanced":
     default:
       return 1;
@@ -70,41 +71,30 @@ const deriveCoachPlan = (params: {
       effectiveMinutes: 0,
       cycles: 0,
       minutesPerCycle: 0,
-      uvFactor: 0,
-      skinFactor: 0,
-      creamFactor: 0,
-      intensityFactor: 0,
       isStopped: true,
     };
   }
 
-  // Conservative UV factor: more aggressive reduction as UV increases
-  const uvFactor = Math.max(0.35, Math.min(2.5, 9 / Math.max(1, params.uvIndex)));
-  const skinFactor = getSkinMultiplier(params.skinLevel);
-  const creamFactor = COACH_CREAM_MULTIPLIERS[params.creamSpf] ?? 1;
-  const intensityFactor = getCoachIntensityMultiplier(params.intensity);
-
-  const effectiveMinutes = Math.min(
-    60, // Safety hard-cap for coach sessions
-    Math.max(
-      5,
-      Math.round(params.baseMinutes * uvFactor * skinFactor * creamFactor * intensityFactor)
-    )
+  // 1. FULL SAFE CALCULATION (Centralized Logic)
+  const effectiveMinutes = calculateSafeMinutes(
+    params.uvIndex, 
+    params.skinLevel, 
+    params.creamSpf, 
+    params.intensity
   );
 
-  const targetRotationMinutes = params.intensity === "gentle" ? 10 : params.intensity === "strong" ? 5 : 6;
-  const cycles = Math.max(2, Math.min(6, Math.round(effectiveMinutes / targetRotationMinutes)));
-
-  const minutesPerCycle = Math.max(1, Math.round(effectiveMinutes / cycles));
+  // 2. ROTATIONS (CYCLES)
+  const cycles = effectiveMinutes >= 45 ? 3 : 2;
+  const minutesPerCycle = Math.round(effectiveMinutes / cycles);
 
   return {
     effectiveMinutes,
     cycles,
     minutesPerCycle,
-    uvFactor,
-    skinFactor,
-    creamFactor,
-    intensityFactor,
+    skinFactor: getSkinMultiplier(params.skinLevel),
+    uvFactor: Math.max(params.uvIndex, 0.5),
+    creamFactor: COACH_CREAM_MULTIPLIERS[params.creamSpf] ?? 1,
+    intensityFactor: getCoachIntensityMultiplier(params.intensity),
     isStopped: false,
   };
 };
@@ -194,7 +184,11 @@ export default function TrackerScreen() {
     dailyGoalMinutes,
     hasPremium,
     history,
-    vitDGoalIU
+    vitDGoalIU,
+    setSkinProfile,
+    skinHex,
+    sunReaction,
+    baseTan
   } = useAppStore();
 
   const weeklyVitD = useMemo(() => {
@@ -207,7 +201,7 @@ export default function TrackerScreen() {
   const [personalMinutes, setPersonalMinutes] = useState(dailyGoalMinutes || 20);
   const [coachMinutes, setCoachMinutes] = useState(20);
   const [displayedCoachMinutes, setDisplayedCoachMinutes] = useState(20);
-  const [coachSkinLevel, setCoachSkinLevel] = useState(fitzpatrickLevel || 1);
+  const [coachSkinLevel, setCoachSkinLevel] = useState(fitzpatrickLevel || 2);
   const [coachCreamSpf, setCoachCreamSpf] = useState(currentSpf);
   const [coachIntensity, setCoachIntensity] = useState<CoachIntensity>("balanced");
 
@@ -216,7 +210,7 @@ export default function TrackerScreen() {
   const itemLayouts = useRef<Record<number, { y: number; height: number }>>({});
 
   useEffect(() => {
-    setCoachSkinLevel(fitzpatrickLevel || 1);
+    setCoachSkinLevel(fitzpatrickLevel || 2);
   }, [fitzpatrickLevel]);
 
   useEffect(() => {
@@ -231,6 +225,9 @@ export default function TrackerScreen() {
 
   // Sincronizza il display quando cambiano i fattori (crema, pelle, UV, intensità)
   useEffect(() => {
+    // Non resettare se siamo già in una sessione attiva
+    if (isSessionActive) return;
+
     // Calcola il valore "suggerito" dall'app basato su UV e altri fattori
     // Usa baseMinutes=20 come valore base fisso (non moltiplicato di nuovo)
     const plan = deriveCoachPlan({
@@ -242,7 +239,7 @@ export default function TrackerScreen() {
     });
     // Sincronizza il display al nuovo valore calcolato
     setDisplayedCoachMinutes(Math.max(5, Math.min(60, plan.effectiveMinutes)));
-  }, [coachCreamSpf, coachSkinLevel, cachedCurrentUv, coachIntensity]);
+  }, [coachCreamSpf, coachSkinLevel, cachedCurrentUv, coachIntensity, isSessionActive]);
 
   // Centra automaticamente la fase attiva quando currentPhaseIndex cambia
   useEffect(() => {
@@ -262,12 +259,11 @@ export default function TrackerScreen() {
   const uvBand = getUvBand(currentUvNumber);
   
   // Calcola i cicli DIRETTAMENTE dal displayedCoachMinutes (che è già il tempo totale finale)
-  // NON moltiplicare di nuovo per i fattori!
   const isUvStopped = cachedCurrentUv <= 0;
-  const targetRotationMinutes = coachIntensity === "gentle" ? 10 : coachIntensity === "strong" ? 5 : 6;
-  const coachCycles = isUvStopped ? 0 : Math.max(2, Math.min(6, Math.round(displayedCoachMinutes / targetRotationMinutes)));
+  // Use user-requested logic: ~2 cycles for 30m, ~3 cycles for 60m
+  const coachCycles = isUvStopped ? 0 : (displayedCoachMinutes >= 45 ? 3 : 2);
   const coachRotationMinutes = isUvStopped ? 0 : Math.max(1, Math.round(displayedCoachMinutes / coachCycles));
-  const effectiveCoachMinutes = displayedCoachMinutes; // Il valore finale IS il displayedCoachMinutes!
+  const effectiveCoachMinutes = displayedCoachMinutes; 
 
   useEffect(() => {
     let interval: any = null;
@@ -514,7 +510,7 @@ export default function TrackerScreen() {
                             {t[coachIntensity as keyof typeof t] || "Balanced"}
                           </Text>
                           <Text className="mt-1 text-[11px] font-bold text-white/55">
-                            {coachIntensity === 'balanced' ? t.recommended : coachIntensity === 'gentle' ? t.longerSession : t.shorterSession}
+                            {coachIntensity === 'balanced' ? t.recommended : coachIntensity === 'gentle' ? t.shorterSession : t.longerSession}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -749,7 +745,7 @@ export default function TrackerScreen() {
               <Text className="mt-3 text-center text-[11px] font-medium text-white/50">
                 {isUvStopped 
                   ? t.uvZeroPlanStopped 
-                  : `${t.actualTimerRotations}: ${coachMinutes} min • ${coachCycles} ${t.rotations.toLowerCase()}`}
+                  : `${t.actualTimerRotations}: ${effectiveCoachMinutes} min • ${coachCycles} ${t.rotations.toLowerCase()}`}
               </Text>
             </View>
 
@@ -763,6 +759,13 @@ export default function TrackerScreen() {
                       key={type.level}
                       onPress={() => {
                         setCoachSkinLevel(type.level);
+                        setSkinProfile({ 
+                          skinHex: skinHex || "", 
+                          fitzpatrickLevel: type.level, 
+                          sunReaction: sunReaction || "", 
+                          baseTan: baseTan || "", 
+                          currentSpf: coachCreamSpf 
+                        });
                       }}
                       className={`min-w-[72px] flex-1 items-center rounded-2xl border px-3 py-3 ${active ? "border-accentYellow bg-accentYellow/10" : "border-white/10 bg-white/5"}`}
                     >
@@ -813,7 +816,7 @@ export default function TrackerScreen() {
                         {option.id === "gentle" ? t.gentle : option.id === "balanced" ? t.balanced : t.strong}
                       </Text>
                       <Text numberOfLines={1} adjustsFontSizeToFit className="mt-1 text-[10px] font-medium text-white/45">
-                        {option.id === "gentle" ? t.longerSession : option.id === "balanced" ? t.recommended : t.shorterSession}
+                        {option.id === "gentle" ? t.shorterSession : option.id === "balanced" ? t.recommended : t.longerSession}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -841,9 +844,8 @@ export default function TrackerScreen() {
             <View className="flex-row gap-3">
               <TouchableOpacity
                 onPress={() => {
-                  setCoachMinutes(20);
-                  setCoachSkinLevel(fitzpatrickLevel || 1);
-                  setCoachCreamSpf(currentSpf);
+                  setCoachSkinLevel(fitzpatrickLevel || 2);
+                  setCoachCreamSpf(0);
                   setCoachIntensity("balanced");
                 }}
                 className="flex-1 items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-4"

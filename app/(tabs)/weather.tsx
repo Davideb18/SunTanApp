@@ -17,7 +17,7 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { GlassCard } from "@/components/GlassCard";
 import { useAppStore } from "@/store/useAppStore";
 import { getUvBand, COLORS } from "@/constants/theme";
-import { fetchWeatherData, WeatherData } from "@/utils/weather";
+import { fetchWeatherData, WeatherData, getWeatherDescription } from "@/utils/weather";
 import { HeaderButtons } from "../../components/HeaderButtons";
 import { PremiumModal } from "../../components/PremiumModal";
 import { useTranslation } from "@/constants/i18n";
@@ -25,6 +25,7 @@ import { SettingsModal } from "@/components/SettingsModal";
 import { AmbassadorModal } from "@/components/AmbassadorModal";
 import { AmbassadorCard } from "../../components/AmbassadorCard";
 import { getSkinMultiplier } from "@/utils/skin";
+import { calculateSafeMinutes } from "@/utils/tanning";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -56,7 +57,17 @@ export default function WeatherScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { cachedCurrentUv, setWeatherData, history, dailyGoalMinutes, fitzpatrickLevel, hasPremium, mockLocation, utcOffset } = useAppStore();
+  const { 
+    cachedCurrentUv, 
+    setWeatherData, 
+    history, 
+    dailyGoalMinutes, 
+    fitzpatrickLevel, 
+    hasPremium, 
+    mockLocation, 
+    utcOffset,
+    currentSpf
+  } = useAppStore();
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   // ... (existing states)
@@ -242,11 +253,9 @@ export default function WeatherScreen() {
 
   const getSafeWindow = (uv: number) => {
     if (uv <= 0) return "∞";
-    const skinFactor = getSkinMultiplier(fitzpatrickLevel || 2); 
-    // Align with Coach logic: (180 * skinFactor) / UV
-    const minutes = Math.round((180 * skinFactor) / Math.max(uv, 0.5));
+    const minutes = calculateSafeMinutes(uv, fitzpatrickLevel || 2, currentSpf);
     
-    if (minutes > 240) return "4h+";
+    if (minutes > 240) return "∞";
     if (minutes > 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
     return `${minutes}m`;
   };
@@ -348,15 +357,15 @@ export default function WeatherScreen() {
 
         {/* 2. ADVANCED RISK BOX (Burn Risk + 3 Metrics) */}
         {!loading && weather && (
-          <GlassCard style={{ padding: 24, marginBottom: 24, borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
-            <View className="flex-row items-center justify-between mb-8">
+          <GlassCard style={{ padding: 20, marginBottom: 24, borderWidth: 1.5, borderColor: "#FFFFFF", backgroundColor: "rgba(0,0,0,0.7)", shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 25, elevation: 20 }}>
+            <View className="flex-row items-center justify-between mb-5">
               <View>
-                <Text className="text-[10px] font-black uppercase tracking-[2px] text-white mb-1">{t.exposureSafety}</Text>
-                <Text className="text-2xl font-black text-white">{t.burnRiskTitle}</Text>
+                <Text className="text-[9px] font-black uppercase tracking-[2px] text-white/50 mb-0.5">{t.exposureSafety}</Text>
+                <Text className="text-xl font-black text-white">{t.burnRiskTitle}</Text>
               </View>
-              <View className="flex-row items-center px-5 py-2.5 rounded-2xl" style={{ backgroundColor: `${burnRisk.color}20`, borderWidth: 1, borderColor: `${burnRisk.color}40` }}>
-                <Text className="text-lg mr-2">{burnRisk.emoji}</Text>
-                <Text className="text-lg font-black" style={{ color: burnRisk.color }}>{burnRisk.label}</Text>
+              <View className="flex-row items-center px-4 py-2 rounded-2xl" style={{ backgroundColor: `${burnRisk.color}20`, borderWidth: 1, borderColor: `${burnRisk.color}40` }}>
+                <Text className="text-base mr-2">{burnRisk.emoji}</Text>
+                <Text className="text-base font-black" style={{ color: burnRisk.color }}>{burnRisk.label}</Text>
               </View>
             </View>
             
@@ -518,9 +527,9 @@ export default function WeatherScreen() {
                     <Text className="ml-3 text-base font-black text-white">{t.tomorrowStrategy}</Text>
                   </View>
                   {hasPremium && (
-                    <View className={`px-3 py-1 rounded-xl border ${tomorrowRecommended ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
-                      <Text className={`text-[10px] font-black uppercase ${tomorrowRecommended ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {tomorrowRecommendationLabel} · {strategyStart}
+                    <View className="px-3 py-1 rounded-xl border bg-white/5 border-white/10">
+                      <Text className="text-[10px] font-black uppercase text-white/50">
+                        {t.optimal}
                       </Text>
                     </View>
                   )}
@@ -540,33 +549,35 @@ export default function WeatherScreen() {
                    </Text>
                  </TouchableOpacity>
                ) : (
-                 <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center">
-                      {getWeatherIcon(tomorrowForecast?.weatherCode ?? 0, 32)}
-                      <View className="ml-4">
-                        <Text className="text-3xl font-black text-white">{(tomorrowForecast?.tempMax ?? 0).toFixed(0)}°</Text>
-                        <Text className="text-[10px] font-bold text-white/30 uppercase tracking-[1px]">{t.peak} UV {(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text>
-                      </View>
-                    </View>
-                    <View className="flex-1 ml-8 pl-6 border-l border-white/10">
-                      {tomorrowRecommended ? (
-                        <>
-                          <Text className="text-[11px] font-bold text-white/70 leading-[16px] mb-3">
-                            {t.betweenStr} <Text className="text-white font-black">{strategyStart}</Text> {t.andStr} <Text className="text-white font-black">{strategyEnd}</Text> {t.withPeakUv} <Text className="text-accentYellow font-black">{(tomorrowForecast?.uvMax ?? 0).toFixed(1)}</Text>
-                          </Text>
-                          <View className="bg-emerald-500/10 border border-emerald-500/30 flex-row items-center px-3 py-1.5 rounded-lg w-fit">
-                            <Text className="text-[10px] font-black uppercase tracking-[1px] text-emerald-400">
-                              {t.recommendedAction}
-                            </Text>
-                          </View>
-                        </>
-                      ) : (
-                        <View className="bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-lg">
-                          <Text className="text-[9px] font-black uppercase tracking-[1px] text-rose-400 whitespace-nowrap">
-                            {t.notRecommendedAction}
-                          </Text>
-                        </View>
-                      )}
+                 <View className="flex-row items-center">
+                    <View className="flex-1 ml-4 pl-4 border-l border-white/10">
+                       {/* Time Window at the Top */}
+                       <Text className="text-[12px] font-black text-white/50 uppercase tracking-[1px] mb-1">
+                          {t.bestWindow}
+                       </Text>
+                       <Text className="text-[18px] font-black text-white mb-3">
+                          {strategyStart} - {strategyEnd}
+                       </Text>
+
+                       {/* Temp and UV in the middle row */}
+                       <View className="flex-row items-center justify-between mb-3 pr-4">
+                         <View>
+                           <Text className="text-[24px] font-black text-white">{(tomorrowForecast?.strategyTemp ?? 0).toFixed(0)}°</Text>
+                           <Text className="text-[9px] font-black text-white/30 uppercase tracking-[1px]">TEMP</Text>
+                         </View>
+                         <View className="items-end">
+                           <Text className="text-[24px] font-black text-accentYellow">UV {(tomorrowForecast?.strategyUv ?? 0).toFixed(1)}</Text>
+                           <Text className="text-[9px] font-black text-white/30 uppercase tracking-[1px]">INDEX</Text>
+                         </View>
+                       </View>
+
+                       {/* Weather Description at the bottom */}
+                       <View className="flex-row items-center bg-white/5 rounded-xl px-3 py-2 self-start">
+                         {getWeatherIcon(tomorrowForecast?.strategyWeatherCode ?? 0, 16)}
+                         <Text className="ml-2 text-[10px] font-black uppercase tracking-[1px] text-white/70">
+                           {getWeatherDescription(tomorrowForecast?.strategyWeatherCode ?? 0, t)}
+                         </Text>
+                       </View>
                     </View>
                  </View>
                )}

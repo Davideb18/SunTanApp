@@ -436,7 +436,7 @@ export default function ProfileScreen() {
                         <Zap size={14} color={COLORS.accentYellow} />
                       </View>
                       <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/40 mb-1 text-center">{t.efficiencyTrend}</Text>
-                      <Text className="text-[15px] font-black text-accentYellow text-center">{t.optimal}</Text>
+                      <Text className="text-[15px] font-black text-accentYellow text-center">{t.optimalStatus}</Text>
                    </View>
                    <View className="flex-1 items-center px-2">
                       <View className="h-8 w-8 rounded-full bg-accentOrange/10 items-center justify-center mb-2">
