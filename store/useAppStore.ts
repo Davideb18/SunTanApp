@@ -275,14 +275,8 @@ export const useAppStore = create<AppState>()(
 
       setWeatherData: ({ currentUv, currentTemp, feelsLikeTemp, hourlyUvData, locationName, utcOffset }) => {
         set((state) => {
-          let updatedSafetyDate = state.lastSafetyAlertDate;
-          const today = new Date().toDateString();
-          if (state.notificationsEnabled && today !== state.lastSafetyAlertDate) {
-            if (currentUv >= 9 || currentTemp >= 35) {
-              scheduleSafetyAlert(currentUv, currentTemp);
-              updatedSafetyDate = today;
-            }
-          }
+          // Safety alerts are now exclusively handled by the background GPS engine (refreshGPSNotifications)
+          // to prevent false alarms when the user manually searches for locations like Dubai.
 
           // DYNAMIC SESSION ADJUSTMENT:
           // If a coach session is active, recalculate duration based on new UV
@@ -332,7 +326,7 @@ export const useAppStore = create<AppState>()(
             locationName: locationName ?? state.locationName,
             utcOffset: utcOffset ?? state.utcOffset,
             lastWeatherFetch: Date.now(),
-            lastSafetyAlertDate: updatedSafetyDate,
+            lastSafetyAlertDate: state.lastSafetyAlertDate,
             gpsLocationName: !state.mockLocation ? (locationName ?? state.gpsLocationName) : state.gpsLocationName,
             ...sessionUpdates
           };

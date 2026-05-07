@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, TextInput, ActivityIndicator, Pressable, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, TextInput, ActivityIndicator, Pressable, Alert, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { X, CheckCircle2, Camera, Music2, MessageCircle } from 'lucide-react-native';
 import { useTranslation } from '@/constants/i18n';
 import { COLORS } from '@/constants/theme';
@@ -44,9 +44,10 @@ export const AmbassadorModal = ({ visible, onClose }: AmbassadorModalProps) => {
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 }} onPress={handleClose}>
-        <Pressable onPress={(e) => e.stopPropagation()}>
-          <View className="overflow-hidden rounded-[44px] border-[3px] border-white/80 shadow-2xl">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 }} onPress={handleClose}>
+          <Pressable onPress={(e) => { e.stopPropagation(); Keyboard.dismiss(); }}>
+            <View className="overflow-hidden rounded-[44px] border-[3px] border-white/80 shadow-2xl">
             <BlurView intensity={100} tint="light" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
               <LinearGradient
                 colors={["#A855F7", "#F472B6"]}
@@ -148,8 +149,9 @@ export const AmbassadorModal = ({ visible, onClose }: AmbassadorModalProps) => {
               </View>
             </BlurView>
           </View>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

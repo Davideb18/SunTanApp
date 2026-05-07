@@ -15,28 +15,28 @@ export const calculateSafeMinutes = (
   const skinMultiplier = getSkinMultiplier(skinLevel || 2);
   const uvIndex = Math.max(uv, 0.5);
   
-  // 1. Base calculation (Gaussian center: ~20-30m for average UV)
-  let minutes = (110 * skinMultiplier) / uvIndex;
+  // 1. Base calculation (Gaussian center: ~25-35m for average UV)
+  let minutes = (155 * skinMultiplier) / uvIndex;
 
   // 2. Apply Intensity Factor
   const intensityFactors = {
     gentle: 0.8,     // Shorter, extra safe
     balanced: 1.0,   // Standard
-    strong: 1.15     // Longer, more tan focus
+    strong: 1.20     // Longer, more tan focus
   };
   minutes *= intensityFactors[intensity];
 
-  // 3. Apply SPF (Reduced factors to stay in the 20-30m sweet spot)
+  // 3. Apply SPF (More realistic scaling for longer sessions)
   const creamMultipliers: Record<number, number> = {
     0: 1,
-    15: 1.1,
-    30: 1.2,
-    50: 1.3,
+    15: 1.15,
+    30: 1.25,
+    50: 1.35,
   };
   minutes *= (creamMultipliers[spf] || 1);
 
-  // 4. Final Safety Caps (Hard limit at 40m as requested)
-  const maxCap = uv >= 9 ? 35 : 50;
+  // 4. Final Safety Caps (Hard limit raised to 45m for dark skin)
+  const maxCap = uv >= 9 ? 45 : 60;
   minutes = Math.min(minutes, maxCap);
   
   return Math.round(minutes);

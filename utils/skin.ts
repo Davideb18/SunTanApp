@@ -4,12 +4,12 @@
 
 export const getSkinMultiplier = (level: number): number => {
   const multipliers: Record<number, number> = {
-    1: 0.78,   // Molto chiara
-    2: 0.83,   // Chiara (base)
-    3: 0.87,   // Media
-    4: 0.95,   // Olivastra
-    5: 1.05,   // Scura
-    6: 1.15,   // Molto scura
+    1: 0.85,   // Molto chiara (ex 0.78)
+    2: 1.00,   // Chiara base (ex 0.83)
+    3: 1.15,   // Media (ex 0.87)
+    4: 1.35,   // Olivastra (ex 0.95)
+    5: 1.55,   // Scura (ex 1.05)
+    6: 1.70,   // Molto scura (ex 1.15)
   };
   return multipliers[level] || 1.0;
 };

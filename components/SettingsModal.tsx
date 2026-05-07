@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { 
   X, ChevronRight, Globe, Zap, Ruler, 
   Dna, FileText, LifeBuoy, Mail, Gift, 
-  Bell, Heart, Star, LogOut 
+  Bell, Heart, Star, LogOut, ShieldCheck 
 } from "lucide-react-native";
 import { useAppStore } from "@/store/useAppStore";
 import { GlassCard } from "./GlassCard";
@@ -137,15 +137,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
               {/* Premium Section */}
               <GlassCard style={{ padding: 20, marginTop: 10, borderRadius: 32, backgroundColor: "rgba(255,222,0,0.05)", borderColor: COLORS.accentYellow, borderWidth: 1 }}>
                 <View className="flex-row items-center justify-between">
-                  <View>
+                  <View className="flex-1 pr-4">
                     <Text className="text-sm font-black text-accentYellow uppercase tracking-[1px]">{t.premiumAccess}</Text>
                     <Text className="text-xl font-black text-white mt-1">{hasPremium ? t.activeSubscription : t.upgradeToPro}</Text>
                   </View>
                   <TouchableOpacity 
-                    onPress={() => setPremiumVisible(true)}
-                    className="bg-accentYellow px-4 py-2 rounded-xl"
+                    onPress={() => !hasPremium && setPremiumVisible(true)}
+                    activeOpacity={hasPremium ? 1 : 0.7}
+                    className={`${hasPremium ? 'bg-white/10' : 'bg-accentYellow'} px-4 py-2.5 rounded-xl`}
                   >
-                    <Text className="text-xs font-black text-black">{hasPremium ? t.manage : t.upgrade}</Text>
+                    {hasPremium ? (
+                      <View className="flex-row items-center">
+                         <ShieldCheck size={14} color={COLORS.accentYellow} />
+                         <Text className="text-[10px] font-black text-accentYellow ml-2 uppercase tracking-[1px]">PRO</Text>
+                      </View>
+                    ) : (
+                      <Text className="text-xs font-black text-black">{t.upgrade}</Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               </GlassCard>

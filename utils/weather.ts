@@ -183,26 +183,36 @@ export async function fetchWeatherData(lat?: number, lon?: number): Promise<Weat
 
     const dailyTemps = (data.hourly.temperature_2m || []).slice(nextDayHourlyStart, nextDayHourlyStart + 24);
 
-    // Strategy Selection Logic: Target ~7.5 UV if possible, prefer dry hours.
+    // 1. Get the actual daily max from the daily array (more reliable than scanning hourly)
+    const dailyMaxUv = data.daily.uv_index_max[i] ?? Math.max(...nextDayHourlyUv);
+
+    // Strategy Selection Logic: Target daily peak, unless it's extreme (>= 9.5)
+    const targetUv = dailyMaxUv >= 9.5 ? 8.5 : dailyMaxUv;
+
     const candidates = nextDayHourlyUv.map((uvVal: number, h: number) => ({
-      hour: h, uvVal,
+      hour: h, 
+      uvVal,
       temp: dailyTemps[h] ?? 0,
       code: nextDayHourlyCodes[h] ?? 0,
-      isRainy: isRainRisk(nextDayHourlyCodes[h] ?? 0, sanitizedHourlyPrecipitation[h] ?? 0)
+      // Only strictly avoid actual heavy rain/storms
+      isBadWeather: (nextDayHourlyCodes[h] >= 61 && nextDayHourlyCodes[h] <= 99) || (sanitizedHourlyPrecipitation[h] >= 60)
     })).filter((c: any) => c.uvVal > 0.5);
 
-    const dryCandidates = candidates.filter((c: any) => !c.isRainy);
-    const pool = dryCandidates.length > 0 ? dryCandidates : candidates;
-    const dayMax = Math.max(...nextDayHourlyUv);
+    const goodWeatherCandidates = candidates.filter((c: any) => !c.isBadWeather);
+    const pool = goodWeatherCandidates.length > 0 ? goodWeatherCandidates : candidates;
 
+    // Sort by how close they are to the target UV
     const chosen = pool.sort((a: any, b: any) => {
-      const target = dayMax > 8.5 ? 7.5 : dayMax;
-      return Math.abs(a.uvVal - target) - Math.abs(b.uvVal - target);
+      return Math.abs(a.uvVal - targetUv) - Math.abs(b.uvVal - targetUv);
     })[0];
 
     const chosenHour = chosen?.hour ?? normalizedPeakHour;
-    const strategyStartTime = toHourLabel(chosenHour - 1);
-    const strategyEndTime = toHourLabel(chosenHour + 1);
+    
+    // Format the time properly (e.g. 16:00 - 18:00)
+    const startHourNum = chosenHour;
+    const endHourNum = (chosenHour + 2) % 24; // 2 hour window
+    const strategyStartTime = `${String(startHourNum).padStart(2, "0")}:00`;
+    const strategyEndTime = `${String(endHourNum).padStart(2, "0")}:00`;
     
     dailyForecast.push({
       date: data.daily.time[i],
