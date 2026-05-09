@@ -8,9 +8,8 @@
     "userInterfaceStyle": "dark",
     "scheme": "glowy",
     "splash": {
-      "image": "./assets/images/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#0B0B0F"
     },
     "ios": {
       "supportsTablet": false,
@@ -30,7 +29,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icona.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#0B0B0F"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.davideberno.glowy",

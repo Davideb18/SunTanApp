@@ -106,10 +106,10 @@ export async function scheduleDailySunNotification(hourlyUvData: number[], curre
   const weatherDesc = getWeatherDescription(weatherCode, t);
   const hourLabel = peakHour >= 0 ? `${peakHour}:00` : "--:--";
   
-  let morningTitle = isIt ? "Il sole di oggi ☀️" : "Today's Sun ☀️";
+  let morningTitle = isIt ? "Il sole di oggi ti aspetta ✨" : "Today's sun is waiting ✨";
   const morningBody = isIt
-    ? `Picco UV ${Math.round(peakUv)} alle ${hourLabel} (${Math.round(currentTemp)}°C). Meteo: ${weatherDesc}.`
-    : `UV Peak ${Math.round(peakUv)} at ${hourLabel} (${Math.round(currentTemp)}°C). Weather: ${weatherDesc}.`;
+    ? `Preparati! Il momento migliore sarà alle ${hourLabel} (UV ${Math.round(peakUv)}). Ti aspettano ${Math.round(currentTemp)}°C e cielo ${weatherDesc.toLowerCase()}.`
+    : `Get ready! The best time is at ${hourLabel} (UV ${Math.round(peakUv)}). Expect ${Math.round(currentTemp)}°C and ${weatherDesc.toLowerCase()}.`;
 
   await Notifications.scheduleNotificationAsync({
     identifier: 'daily-sun-advice',
@@ -141,15 +141,15 @@ export async function scheduleDailySunNotification(hourlyUvData: number[], curre
     });
   }
 
-  // 2. Safety alert if CURRENT REAL GPS UV is extreme
-  if (currentUv > 8) {
+  // 2. Safety alert if CURRENT REAL GPS UV is extreme (lowered to >= 6 as requested)
+  if (currentUv >= 6) {
     await Notifications.scheduleNotificationAsync({
       identifier: 'uv-burn-risk',
       content: {
-        title: isIt ? "Attenzione: Alto Rischio di Scottatura! ⚠️" : "High Burn Risk! ⚠️",
+        title: isIt ? "Attenzione: UV Alto! ⚠️" : "High UV Alert! ⚠️",
         body: isIt
-          ? `UV molto alto (${Math.round(currentUv)}). Evita esposizioni prolungate.`
-          : `Very high UV (${Math.round(currentUv)}). Avoid prolonged exposure.`,
+          ? `L'indice UV ha raggiunto ${Math.round(currentUv)}. Proteggi la tua pelle se ti esponi.`
+          : `UV index reached ${Math.round(currentUv)}. Protect your skin if exposed.`,
         sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
       },

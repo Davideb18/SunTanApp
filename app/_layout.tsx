@@ -15,7 +15,11 @@ import { PremiumModal } from "@/components/PremiumModal";
 import { AmbassadorModal } from "@/components/AmbassadorModal";
 import { LocationModal } from "@/components/LocationModal";
 import { refreshGPSNotifications } from "../utils/notificationEngine";
+import * as SplashScreen from "expo-splash-screen";
 import "../global.css";
+
+// Prevent the splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const premiumVisible = useAppStore((s) => s.premiumVisible);
@@ -36,11 +40,8 @@ export default function RootLayout() {
       return;
     }
 
-    // Configure RevenueCat (verbose logging for preview builds to aid debugging)
-    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-    if (typeof Purchases.setDebugLogsEnabled === 'function') {
-      try { Purchases.setDebugLogsEnabled(true); } catch (e) { /* noop */ }
-    }
+    // Configure RevenueCat
+    Purchases.setLogLevel(LOG_LEVEL.INFO);
 
     const revenueCatApiKey = Platform.OS === "ios"
       ? process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY
@@ -62,6 +63,13 @@ export default function RootLayout() {
 
     // Refresh GPS-locked notifications on app launch
     refreshGPSNotifications();
+
+    // Hide splash screen after a short delay to ensure UI is ready
+    const hideSplash = async () => {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      await SplashScreen.hideAsync();
+    };
+    hideSplash();
   }, []);
 
   return (
