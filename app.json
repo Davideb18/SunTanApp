@@ -14,7 +14,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.davideberno.glowy",
-
+      "buildNumber": "2",
       "infoPlist": {
         "UIBackgroundModes": [
           "location",

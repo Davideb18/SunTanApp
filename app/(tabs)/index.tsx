@@ -759,13 +759,6 @@ export default function TrackerScreen() {
                       key={type.level}
                       onPress={() => {
                         setCoachSkinLevel(type.level);
-                        setSkinProfile({ 
-                          skinHex: skinHex || "", 
-                          fitzpatrickLevel: type.level, 
-                          sunReaction: sunReaction || "", 
-                          baseTan: baseTan || "", 
-                          currentSpf: coachCreamSpf 
-                        });
                       }}
                       className={`min-w-[72px] flex-1 items-center rounded-2xl border px-3 py-3 ${active ? "border-accentYellow bg-accentYellow/10" : "border-white/10 bg-white/5"}`}
                     >
@@ -845,7 +838,7 @@ export default function TrackerScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setCoachSkinLevel(fitzpatrickLevel || 2);
-                  setCoachCreamSpf(0);
+                  setCoachCreamSpf(currentSpf);
                   setCoachIntensity("balanced");
                 }}
                 className="flex-1 items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-4"

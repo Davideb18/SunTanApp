@@ -515,9 +515,11 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
 
               {/* Footer - removed Restore button (confusing for most users) */}
 
-              <Text className="text-[10px] text-white/30 font-bold text-center leading-4 px-10">
+              <Text className="text-[10px] text-white/30 font-bold text-center leading-4 px-10 mb-6">
                 {t.premiumDisclaimer}
               </Text>
+
+
 
             </ScrollView>
           </View>

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, ScrollView, ActivityIndicator, Dimensions, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as ExpoLocation from "expo-location";
 import * as Notifications from "expo-notifications";
 import {
   Clock, Droplet, Dna, TrendingUp, Sparkles, Cloud, 
@@ -175,11 +174,9 @@ export default function WeatherScreen() {
   const requestPermission = async () => {
     try {
       setLoading(true);
-      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-      setPermissionStatus(status);
-      if (status === 'granted') {
-        loadWeather();
-      }
+      // Permission is handled internally by loadWeather() / utils/weather.ts
+      // to avoid asking twice. We just trigger the load.
+      await loadWeather();
     } catch (e) {
       console.error(e);
       setErrorMsg(t.locationPermError);
