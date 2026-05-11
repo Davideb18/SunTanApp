@@ -131,6 +131,11 @@ export const translations = {
     quarterlyPro: "Quarterly Pro",
     monthlyPass: "Monthly Pass",
     premiumDisclaimer: "Payment will be charged to your iTunes Account. Subscription automatically renews unless auto-renew is turned off.",
+    restorePurchases: "Restore Purchases",
+    restoreSuccess: "Purchases restored successfully!",
+    restoreNotFound: "No active subscriptions found to restore.",
+    success: "Success",
+    error: "Error",
     
     // Intensities
     gentle: "Gentle",
@@ -502,7 +507,12 @@ export const translations = {
     annualElite: "Annuale Elite",
     quarterlyPro: "Trimestrale Pro",
     monthlyPass: "Pass Mensile",
-    premiumDisclaimer: "Il pagamento verrà addebitato sul tuo account iTunes. L'abbonamento si rinnova automaticamente.",
+    premiumDisclaimer: "L'abbonamento si rinnoverà automaticamente a meno che non venga disattivato nelle impostazioni dell'account iTunes.",
+    restorePurchases: "Ripristina Acquisti",
+    restoreSuccess: "Acquisti ripristinati con successo!",
+    restoreNotFound: "Nessun abbonamento attivo trovato da ripristinare.",
+    success: "Successo",
+    error: "Errore",
     
     // Intensities
     gentle: "Delicato",

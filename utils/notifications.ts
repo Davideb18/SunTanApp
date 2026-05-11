@@ -95,7 +95,7 @@ export async function scheduleDailySunNotification(hourlyUvData: number[], curre
   if (peakUv < 1) return;
 
   const morningHour = 8;
-  const morningMinute = 30;
+  const morningMinute = 0;
 
   const trigger: any = {
     type: Notifications.SchedulableTriggerInputTypes.DAILY,

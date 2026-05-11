@@ -7,10 +7,8 @@ export async function refreshGPSNotifications() {
   const store = useAppStore.getState();
   const today = new Date().toDateString();
   
-  if (store.lastDailyNotificationDate === today) {
-    console.log("[NotificationEngine] Already scheduled today.");
-    return;
-  }
+  // We refresh notifications on every launch to ensure we have the latest weather data
+  // but we still keep the store update for tracking purposes if needed elsewhere.
 
   try {
     const { status } = await Location.getForegroundPermissionsAsync();

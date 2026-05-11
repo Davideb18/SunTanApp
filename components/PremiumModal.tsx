@@ -513,11 +513,27 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                 </View>
               )}
 
-              {/* Footer - removed Restore button (confusing for most users) */}
-
-              <Text className="text-[10px] text-white/30 font-bold text-center leading-4 px-10 mb-6">
-                {t.premiumDisclaimer}
-              </Text>
+              <TouchableOpacity 
+                onPress={async () => {
+                  try {
+                    const customerInfo = await require('react-native-purchases').default.restorePurchases();
+                    if (customerInfo.entitlements.active['pro']) {
+                      useAppStore.getState().setHasPremium(true);
+                      Alert.alert(t.success || "Success", t.restoreSuccess || "Purchases restored successfully!");
+                      onClose();
+                    } else {
+                      Alert.alert(t.error || "Error", t.restoreNotFound || "No active subscriptions found to restore.");
+                    }
+                  } catch (e) {
+                    Alert.alert(t.error || "Error", "Failed to restore purchases.");
+                  }
+                }}
+                className="mt-2 mb-8 py-2 items-center justify-center"
+              >
+                <Text className="text-[12px] font-bold text-white/40 uppercase tracking-[1px] underline">
+                  {t.restorePurchases || "Restore Purchases"}
+                </Text>
+              </TouchableOpacity>
 
 
 

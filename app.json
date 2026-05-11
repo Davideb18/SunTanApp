@@ -14,10 +14,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.davideberno.glowy",
-      "buildNumber": "2",
+      "buildNumber": "21",
       "infoPlist": {
         "UIBackgroundModes": [
-          "location",
           "remote-notification"
         ],
         "NSLocationWhenInUseUsageDescription": "Glowy uses your location to show UV index. / Glowy usa la tua posizione per mostrarti l'indice UV della tua zona.",
