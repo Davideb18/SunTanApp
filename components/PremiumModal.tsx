@@ -24,6 +24,7 @@ import { X, Check, Zap, ShieldCheck, Clock, Sun, ChevronRight, ChevronDown, Cale
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS } from "@/constants/theme";
 import { useTranslation } from "@/constants/i18n";
+import { LegalModal } from "./LegalModal";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useAppStore } from "@/store/useAppStore";
 import { PACKAGE_TYPE } from "react-native-purchases";
@@ -79,6 +80,8 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
   const [selectedIndex, setSelectedIndex] = React.useState(1);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [canClose, setCanClose] = useState(false);
+  const [legalVisible, setLegalVisible] = useState(false);
+  const [legalType, setLegalType] = useState<"privacy" | "terms">("privacy");
   const closeFadeAnim = useRef(new Animated.Value(0)).current;
 
   // Animations
@@ -171,23 +174,44 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
       return;
     }
     setLoading(true);
-    const success = await purchasePackage(selectedPlan.pack);
-    setLoading(false);
-    if (success) onClose();
+    try {
+      const success = await purchasePackage(selectedPlan.pack);
+      if (success) onClose();
+    } catch (e: any) {
+      Alert.alert(
+        isItalian ? "Errore di acquisto" : "Purchase Failed",
+        e?.message || (isItalian ? "Si è verificato un errore durante l'acquisto." : "An error occurred during the purchase.")
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRestore = async () => {
     setLoading(true);
-    const success = await restorePurchases();
-    setLoading(false);
-    if (success) {
-      onClose();
-    } else {
+    try {
+      const success = await restorePurchases();
+      if (success) {
+        onClose();
+      } else {
+        Alert.alert(
+          isItalian ? "Nessun acquisto" : "No purchases",
+          isItalian ? "Nessun abbonamento attivo trovato." : "No active subscription found."
+        );
+      }
+    } catch (e: any) {
       Alert.alert(
-        isItalian ? "Nessun acquisto" : "No purchases",
-        isItalian ? "Nessun abbonamento trovato." : "No active subscription found."
+        isItalian ? "Errore di ripristino" : "Restore Failed",
+        e?.message || (isItalian ? "Si è verificato un errore durante il ripristino." : "An error occurred during the restore.")
       );
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const openLegal = (type: "privacy" | "terms") => {
+    setLegalType(type);
+    setLegalVisible(true);
   };
 
   const FEATURES = [
@@ -535,12 +559,38 @@ export function PremiumModal({ visible, onClose }: PremiumModalProps) {
                 </Text>
               </TouchableOpacity>
 
+              <View className="mb-4 items-center px-2">
+                <Text className="text-center text-[11px] font-bold text-white/55 leading-4">
+                  {isItalian
+                    ? "Abbonamento con rinnovo automatico. Puoi gestire o annullare il rinnovo dalle impostazioni del tuo account Apple."
+                    : "Auto-renewable subscription. You can manage or cancel renewal in your Apple Account settings."}
+                </Text>
+                <View className="mt-3 flex-row items-center justify-center gap-4">
+                  <TouchableOpacity onPress={() => openLegal("privacy")}>
+                    <Text className="text-[11px] font-black uppercase tracking-[1px] text-white underline">
+                      {isItalian ? "Privacy Policy" : "Privacy Policy"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => openLegal("terms")}>
+                    <Text className="text-[11px] font-black uppercase tracking-[1px] text-white underline">
+                      {isItalian ? "Termini di Servizio" : "Terms of Use"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
 
 
             </ScrollView>
           </View>
         </Animated.View>
       </View>
+
+      <LegalModal
+        visible={legalVisible}
+        type={legalType}
+        onClose={() => setLegalVisible(false)}
+      />
     </Modal>
   );
 }

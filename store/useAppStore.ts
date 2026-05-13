@@ -7,7 +7,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { schedulePhaseEndNotification, cancelPhaseEndNotification, scheduleDailySunNotification, scheduleSafetyAlert, scheduleStreakWarningNotification } from "../utils/notifications";
+import { schedulePhaseEndNotification, cancelPhaseEndNotification, scheduleDailySunNotification, scheduleSafetyAlert, scheduleStreakWarningNotification, scheduleAllPhaseNotifications, cancelAllPhaseNotifications } from "../utils/notifications";
 import { getSkinMultiplier } from "../utils/skin";
 
 // ---------------------------------------------------------------------------
@@ -346,7 +346,8 @@ export const useAppStore = create<AppState>()(
           const totalDuration = phases.reduce((acc, p) => acc + p.duration, 0);
           
           if (state.notificationsEnabled) {
-             schedulePhaseEndNotification(phases[0].label, phases[0].duration);
+            // Schedule ALL phases upfront so notifications fire even when app is closed
+            scheduleAllPhaseNotifications(phases);
           }
           
           return {
@@ -363,6 +364,7 @@ export const useAppStore = create<AppState>()(
 
       pauseSession: () => {
         cancelPhaseEndNotification();
+        cancelAllPhaseNotifications();
         set({ isSessionActive: false, sessionStatus: "paused" });
       },
 
@@ -377,6 +379,7 @@ export const useAppStore = create<AppState>()(
 
       cancelSession: () => {
         cancelPhaseEndNotification();
+        cancelAllPhaseNotifications();
         set({ 
           sessionStatus: "idle", 
           isSessionActive: false, 
@@ -391,15 +394,11 @@ export const useAppStore = create<AppState>()(
         set((state) => {
           const nextIndex = state.currentPhaseIndex + 1;
           if (nextIndex < state.sessionPhases.length) {
-            if (state.notificationsEnabled) {
-              schedulePhaseEndNotification(state.sessionPhases[nextIndex].label, state.sessionPhases[nextIndex].duration);
-            }
             return {
               currentPhaseIndex: nextIndex,
               sessionTimeRemaining: state.sessionPhases[nextIndex].duration,
             };
           } else {
-            cancelPhaseEndNotification();
             return {
               sessionStatus: "done",
               isSessionActive: false,
@@ -420,15 +419,11 @@ export const useAppStore = create<AppState>()(
           if (newRemaining <= 0) {
             const nextIndex = state.currentPhaseIndex + 1;
             if (nextIndex < state.sessionPhases.length) {
-              if (state.notificationsEnabled) {
-                schedulePhaseEndNotification(state.sessionPhases[nextIndex].label, state.sessionPhases[nextIndex].duration);
-              }
               return {
                 currentPhaseIndex: nextIndex,
                 sessionTimeRemaining: state.sessionPhases[nextIndex].duration,
               };
             } else {
-              cancelPhaseEndNotification();
               return {
                 sessionStatus: "done",
                 isSessionActive: false,

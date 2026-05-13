@@ -34,6 +34,7 @@ export async function setupNotifications() {
 }
 
 let phaseNotificationId: string | null = null;
+const allPhaseNotificationIds: string[] = [];
 
 export async function schedulePhaseEndNotification(phaseLabel: string, durationSeconds: number) {
   await cancelPhaseEndNotification();
@@ -59,6 +60,72 @@ export async function schedulePhaseEndNotification(phaseLabel: string, durationS
   });
 }
 
+// Schedules ALL phase notifications upfront so they fire even when app is closed
+export async function scheduleAllPhaseNotifications(phases: { label: string; duration: number }[]) {
+  // Cancel any existing phase notifications
+  for (const id of allPhaseNotificationIds) {
+    try { await Notifications.cancelScheduledNotificationAsync(id); } catch (e) {}
+  }
+  allPhaseNotificationIds.length = 0;
+
+  const { language } = useAppStore.getState();
+  const isIt = language === 'it';
+
+  // Only real exposure phases (skip FLIP which is just 10s transition)
+  const exposurePhases = phases.filter(p => !p.label.includes('FLIP'));
+  const lastPhaseIndex = exposurePhases.length - 1;
+
+  let cumulativeSeconds = 0;
+  let exposureIndex = 0;
+
+  for (let i = 0; i < phases.length; i++) {
+    const phase = phases[i];
+    cumulativeSeconds += phase.duration;
+
+    // Skip FLIP phases — no notification needed for 10s transition
+    if (phase.label.includes('FLIP')) continue;
+
+    const isLastPhase = exposureIndex === lastPhaseIndex;
+
+    // Determine friendly phase name
+    const phaseName = phase.label.includes('FRONT')
+      ? (isIt ? 'Davanti' : 'Front')
+      : phase.label.includes('BACK')
+      ? (isIt ? 'Dietro' : 'Back')
+      : (isIt ? 'Esposizione' : 'Exposure');
+
+    const title = isLastPhase
+      ? (isIt ? '🎉 Sessione Completata!' : '🎉 Session Complete!')
+      : (isIt ? 'Ruota ora! ☀️' : 'Rotate now! ☀️');
+
+    const body = isLastPhase
+      ? (isIt
+          ? 'Ottimo lavoro! La tua sessione di abbronzatura è finita. Vai all\'ombra e idratati!'
+          : 'Great job! Your tanning session is complete. Find some shade and hydrate!')
+      : (isIt
+          ? `La tua fase ${phaseName} è finita. Ruotati per abbronzarti uniformemente!`
+          : `Your ${phaseName} phase is done. Rotate for an even tan!`);
+
+    const id = await Notifications.scheduleNotificationAsync({
+      identifier: `phase-end-${i}`,
+      content: { title, body, sound: true, priority: Notifications.AndroidNotificationPriority.MAX },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: cumulativeSeconds,
+      },
+    });
+    allPhaseNotificationIds.push(id);
+    exposureIndex++;
+  }
+}
+
+export async function cancelAllPhaseNotifications() {
+  for (const id of allPhaseNotificationIds) {
+    try { await Notifications.cancelScheduledNotificationAsync(id); } catch (e) {}
+  }
+  allPhaseNotificationIds.length = 0;
+}
+
 export async function cancelPhaseEndNotification() {
   if (phaseNotificationId) {
     await Notifications.cancelScheduledNotificationAsync(phaseNotificationId);
@@ -75,8 +142,8 @@ export async function scheduleDailySunNotification(hourlyUvData: number[], curre
   const { language } = useAppStore.getState();
   const isIt = language === 'it';
   // Use the raw translation objects instead of the hook
-  const { it, en } = require('../constants/i18n');
-  const t = isIt ? it : en;
+  const { translations } = require('../constants/i18n');
+  const t = isIt ? translations.it : translations.en;
   
   try {
     await Notifications.cancelScheduledNotificationAsync('daily-sun-advice');

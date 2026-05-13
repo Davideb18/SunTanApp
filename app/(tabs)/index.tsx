@@ -265,6 +265,35 @@ export default function TrackerScreen() {
   const coachRotationMinutes = isUvStopped ? 0 : Math.max(1, Math.round(displayedCoachMinutes / coachCycles));
   const effectiveCoachMinutes = displayedCoachMinutes; 
 
+  // Timer with background correction using AppState + timestamps
+  const backgroundedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const { AppState } = require('react-native');
+    
+    const handleAppStateChange = (nextState: string) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        // App going to background — record the time
+        if (isSessionActive) {
+          backgroundedAtRef.current = Date.now();
+        }
+      } else if (nextState === 'active') {
+        // App coming back to foreground — calculate elapsed time
+        if (isSessionActive && backgroundedAtRef.current !== null) {
+          const elapsed = Math.floor((Date.now() - backgroundedAtRef.current) / 1000);
+          backgroundedAtRef.current = null;
+          // Tick forward by the number of seconds elapsed in background
+          for (let i = 0; i < elapsed; i++) {
+            tick();
+          }
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [isSessionActive, tick]);
+
   useEffect(() => {
     let interval: any = null;
     if (isSessionActive) {

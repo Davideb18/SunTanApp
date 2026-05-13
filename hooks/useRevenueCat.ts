@@ -75,6 +75,7 @@ export const useRevenueCat = () => {
     } catch (e: any) {
       if (!e.userCancelled) {
         console.error("Purchase error:", e);
+        throw e; // Rethrow to let the UI show an alert
       }
       return false;
     }
@@ -90,9 +91,9 @@ export const useRevenueCat = () => {
       const isPro = customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
       setHasPremium(isPro);
       return isPro;
-    } catch (e) {
+    } catch (e: any) {
       console.error("Restore error:", e);
-      return false;
+      throw e; // Rethrow to let the UI show an alert
     }
   };
 
